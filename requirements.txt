@@ -1,0 +1,35 @@
+# FastAPI et serveur
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-multipart==0.0.6
+
+# Base de données
+sqlalchemy==2.0.23
+alembic==1.12.1
+psycopg2-binary==2.9.9
+
+# Configuration avec Pydantic v2
+pydantic-settings==2.0.3
+
+# Authentification Firebase
+firebase-admin==6.2.0
+
+# Export PDF
+weasyprint==60.2
+jinja2==3.1.2
+
+# Scheduler
+apscheduler==3.10.4
+
+# Utilitaires
+pillow==10.1.0
+aiofiles==23.2.0
+
+# Tests (optionnel)
+pytest==7.4.3
+pytest-asyncio==0.21.1
+httpx==0.25.2
+
+# Développement
+black==23.11.0
+flake8==6.1.0

@@ -1,0 +1,128 @@
+name: Deploy to Scaleway
+
+on:
+  push:
+    branches: [ main, production ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  REGISTRY: rg.fr-par.scw.cloud
+  IMAGE_NAME: cleaning-backend
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        sudo apt-get update
+        sudo apt-get install -y libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz0b libfribidi0 libfontconfig1 libgdk-pixbuf2.0-0 libcairo2 libxml2 libxslt1.1
+    
+    - name: Run tests
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+      run: |
+        pytest tests/ -v
+    
+    - name: Lint with flake8
+      run: |
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+  build-and-push:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/production'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Login to Scaleway Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: nologin
+        password: ${{ secrets.SCALEWAY_SECRET_KEY }}
+    
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ secrets.SCALEWAY_PROJECT_ID }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha,prefix=sha-
+          type=raw,value=latest,enable={{is_default_branch}}
+    
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/production'
+    
+    steps:
+    - name: Deploy to Scaleway Container
+      env:
+        SCW_ACCESS_KEY: ${{ secrets.SCALEWAY_ACCESS_KEY }}
+        SCW_SECRET_KEY: ${{ secrets.SCALEWAY_SECRET_KEY }}
+        SCW_DEFAULT_PROJECT_ID: ${{ secrets.SCALEWAY_PROJECT_ID }}
+        SCW_DEFAULT_REGION: fr-par
+        SCW_DEFAULT_ZONE: fr-par-1
+      run: |
+        # Installer Scaleway CLI
+        curl -s https://raw.githubusercontent.com/scaleway/scaleway-cli/master/scripts/get.sh | sh
+        
+        # Configurer le CLI
+        ./scw config set access-key=$SCW_ACCESS_KEY
+        ./scw config set secret-key=$SCW_SECRET_KEY
+        ./scw config set default-project-id=$SCW_DEFAULT_PROJECT_ID
+        ./scw config set default-region=$SCW_DEFAULT_REGION
+        ./scw config set default-zone=$SCW_DEFAULT_ZONE
+        
+        # Déployer le container
+        ./scw container deploy \
+          --name cleaning-backend-prod \
+          --image ${{ env.REGISTRY }}/${{ secrets.SCALEWAY_PROJECT_ID }}/${{ env.IMAGE_NAME }}:latest \
+          --env DATABASE_URL="${{ secrets.DATABASE_URL }}" \
+          --env FIREBASE_CREDENTIALS_PATH="/app/firebase-credentials.json" \
+          --port 8000 \
+          --cpu-limit 1000 \
+          --memory-limit 2048
