@@ -1,6 +1,12 @@
 import pytest
-from main import User, Performer, Room, TaskTemplate, AssignedTask
-from main import UserRole, SessionStatus, LogStatus
+from api.main import app
+from api.core.database import get_db, Base
+from api.models import User, Performer, Room, etc
+from api.models.user import UserRole
+from api.models.performer import Performer
+from api.models.room import Room
+from api.models.task_template import TaskTemplate
+from api.models.assigned_task import AssignedTask
 import uuid
 
 def test_user_creation(db_session):
@@ -8,7 +14,7 @@ def test_user_creation(db_session):
     user = User(
         firebase_uid="test-uid",
         full_name="Test User",
-        role=UserRole.GERANTE
+        role=User.UserRole.GERANTE
     )
     db_session.add(user)
     db_session.commit()
@@ -16,7 +22,7 @@ def test_user_creation(db_session):
     assert user.id is not None
     assert user.firebase_uid == "test-uid"
     assert user.full_name == "Test User"
-    assert user.role == UserRole.GERANTE
+    assert user.role == User.UserRole.GERANTE
 
 def test_performer_creation(db_session):
     """Test de création d'un exécutant"""
@@ -46,7 +52,7 @@ def test_room_creation(db_session):
 
 def test_task_template_creation(db_session):
     """Test de création d'un modèle de tâche"""
-    task = TaskTemplate(
+    task = task.TaskTemplate(
         name="Test Task",
         description="Test Description"
     )

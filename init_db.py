@@ -4,20 +4,22 @@ Usage: python init_db.py
 """
 import asyncio
 from sqlalchemy import create_engine
-from main import Base, DATABASE_URL, User, Performer, Room, TaskTemplate, AssignedTask
+from api.core.database import Base, engine  
+from api.core.config import settings
+from api.models import User, Performer, Room, TaskTemplate, AssignedTask
 from sqlalchemy.orm import sessionmaker
 from decouple import config
 import uuid
 
 def create_tables():
     """Crée toutes les tables"""
-    engine = create_engine(DATABASE_URL)
+    engine = create_engine(settings.database_url)
     Base.metadata.create_all(bind=engine)
     print("✅ Tables créées avec succès")
 
 def populate_initial_data():
     """Ajoute des données initiales"""
-    engine = create_engine(DATABASE_URL)
+    engine = create_engine(settings.database_url)
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     db = SessionLocal()
     

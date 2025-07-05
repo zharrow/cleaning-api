@@ -2,9 +2,18 @@ import pytest
 from datetime import date, datetime
 import tempfile
 import os
-from main import generate_pdf_report_task, generate_zip_photos_task
-from main import CleaningSession, User, Performer, Room, TaskTemplate, AssignedTask, CleaningLog
-from main import UserRole, SessionStatus, LogStatus
+from api.core.database import get_db
+from api.main import app
+from api.core.database import get_db, Base
+from api.models import User, Performer, Room, etc
+from api.models.user import UserRole
+from api.models.performer import Performer
+from api.models.room import Room
+from api.models.task_template import TaskTemplate
+from api.models.assigned_task import AssignedTask
+from api.models.cleaning_session import CleaningSession, SessionStatus
+from api.models.cleaning_log import CleaningLog, LogStatus
+from api.utils import generate_pdf_report_task, generate_zip_photos_task
 
 def test_generate_pdf_report_task(db_session):
     """Test de génération de rapport PDF"""

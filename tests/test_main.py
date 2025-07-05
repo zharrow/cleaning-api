@@ -1,6 +1,8 @@
 import pytest
 from fastapi.testclient import TestClient
-from main import app
+from api.main import app
+from api.core.database import get_db, Base
+from api.models import User, Performer, Room, etc
 
 def test_health_check():
     """Test du health check"""

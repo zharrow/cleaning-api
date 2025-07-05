@@ -8,7 +8,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Importer les modèles
-from main import Base
+from api.models import Base
 from decouple import config
 
 # Configuration Alembic

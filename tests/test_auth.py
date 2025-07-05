@@ -2,7 +2,16 @@ import pytest
 from unittest.mock import patch, MagicMock
 from fastapi.testclient import TestClient
 from fastapi import HTTPException
-from main import app, get_current_user, User
+from api.main import app
+from api.core.database import get_db, Base
+from api.models import User, Performer, Room, etc
+from api.models.user import UserRole
+from api.models.performer import Performer
+from api.models.room import Room
+from api.models.task_template import TaskTemplate
+from api.models.assigned_task import AssignedTask
+from api.models.cleaning_session import CleaningSession, SessionStatus
+from api.models.cleaning_log import CleaningLog, LogStatus
 
 def test_auth_no_token():
     """Test sans token d'authentification"""

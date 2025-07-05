@@ -1,8 +1,11 @@
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from main import Base, User, Performer, Room
-from main import UserRole
+from api.main import app
+from api.core.database import get_db, Base
+from api.models import User, Performer, Room, etc
+from api.models.user import UserRole
+from api.models.performer import Performer
 
 def test_database_connection():
     """Test de connexion à la base de données"""

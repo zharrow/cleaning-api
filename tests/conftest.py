@@ -2,7 +2,9 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from main import app, get_db, Base
+from api.main import app
+from api.core.database import get_db, Base
+from api.models import User, Performer, Room, etc
 import tempfile
 import os
 
