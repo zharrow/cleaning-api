@@ -6,7 +6,7 @@ Usage: python run.py
 
 if __name__ == "__main__":
     import uvicorn
-    from app.main import app
+    from api.v1.main import app
     
     uvicorn.run(
         app,
