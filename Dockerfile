@@ -38,5 +38,5 @@ EXPOSE 8000
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 
-# Commande de démarrage
-CMD ["uvicorn", "run:app", "--host", "0.0.0.0", "--port", "8000"]
+# Commande de démarrage - pointer vers app.main:app au lieu de run:app
+CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
