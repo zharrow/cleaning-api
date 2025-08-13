@@ -3,7 +3,9 @@ from enum import Enum as PyEnum
 from api.models.base import TimestampedModel
 
 class UserRole(PyEnum):
-    GERANTE = "gerante"
+    ADMIN = "admin"
+    MANAGER = "manager"
+    GERANTE = "gerante"  # Alias pour manager
 
 class User(TimestampedModel):
     __tablename__ = "users"

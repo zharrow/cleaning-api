@@ -8,6 +8,10 @@ class UserCreate(BaseModel):
     full_name: str
     role: UserRole = UserRole.GERANTE
 
+class UserUpdate(BaseModel):
+    full_name: str | None = None
+    role: UserRole | None = None
+
 class UserResponse(BaseModel):
     id: uuid.UUID
     firebase_uid: str

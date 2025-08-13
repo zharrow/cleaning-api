@@ -53,6 +53,13 @@ class Settings(BaseSettings):
     smtp_password: Optional[str] = os.getenv("SMTP_PASSWORD")
     email_from: str = os.getenv("EMAIL_FROM", "noreply@cleaning-api.com")
     
+    @field_validator('allowed_hosts', 'cors_origins', mode='before')
+    def split_csv_env(cls, v):
+        # Permettre les valeurs .env simples: "a,b,c" pour des champs List[str]
+        if isinstance(v, str):
+            return [item.strip() for item in v.split(',') if item.strip()]
+        return v
+
     @field_validator('cors_origins')
     def validate_cors_origins(cls, v):
         if v == ["*"]:

@@ -17,5 +17,10 @@ class RequireRole:
             )
         return current_user
 
-# Helper pour le rôle courant utilisé
-require_gerante = RequireRole([UserRole.GERANTE])
+# Helpers pour les rôles
+require_admin = RequireRole([UserRole.ADMIN])
+require_manager = RequireRole([UserRole.ADMIN, UserRole.MANAGER, UserRole.GERANTE])
+require_gerante = RequireRole([UserRole.ADMIN, UserRole.MANAGER, UserRole.GERANTE])
+
+# Alias pour la compatibilité
+require_management = require_manager

@@ -8,7 +8,6 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Importer les modèles
-from api.models import Base
 from decouple import config
 
 # Configuration Alembic
@@ -23,7 +22,10 @@ if config_alembic.config_file_name is not None:
     fileConfig(config_alembic.config_file_name)
 
 # Métadonnées pour l'autogénération
-target_metadata = Base.metadata
+# Pour éviter d'importer l'application complète (et ses Settings) lors des migrations,
+# on désactive l'autogénération dans ce projet et on définit target_metadata à None.
+# Les migrations sont écrites manuellement dans alembic/versions.
+target_metadata = None
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode."""
