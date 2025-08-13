@@ -4,19 +4,20 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # Installer les dépendances système nécessaires pour WeasyPrint
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     libpango-1.0-0 \
     libpangoft2-1.0-0 \
     libharfbuzz0b \
     libfribidi0 \
     libfontconfig1 \
-    libgdk-pixbuf2.0-0 \
+    libgdk-pixbuf-2.0-0 \
     libcairo2 \
     libxml2 \
     libxslt1.1 \
     gcc \
     g++ \
     libpq-dev \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Copier les fichiers de requirements

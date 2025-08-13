@@ -7,13 +7,22 @@ services:
       - "8000:8000"
     environment:
       - DATABASE_URL=postgresql://postgres:password@db:5432/cleaning_db
-      - FIREBASE_CREDENTIALS_PATH=/app/firebase-credentials.json
+      - REDIS_URL=redis://redis:6379/0
+      - FIREBASE_CREDENTIALS_PATH=/firebase-credentials.json
     volumes:
       - ./uploads:/app/uploads
-      - ./firebase-credentials.json:/app/firebase-credentials.json
+      - ./logs:/app/logs
+      - ./firebase-credentials.json:/firebase-credentials.json
     depends_on:
       - db
+      - redis
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   db:
     image: postgres:15-alpine
@@ -26,6 +35,42 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Service de backup (optionnel)
+  backup:
+    image: postgres:15-alpine
+    environment:
+      - PGPASSWORD=password
+    volumes:
+      - ./backups:/backups
+    command: >
+      sh -c "while true; do
+        pg_dump -h db -U postgres cleaning_db > /backups/backup_$$(date +%Y%m%d_%H%M%S).sql;
+        find /backups -type f -mtime +7 -delete;
+        sleep 86400;
+      done"
+    depends_on:
+      - db
+    restart: unless-stopped
 
 volumes:
   postgres_data:
+  redis_data:
