@@ -7,4 +7,5 @@ class Room(BaseModel):
     name = Column(String, nullable=False)
     description = Column(Text)
     display_order = Column(Integer, default=0)
+    image_key = Column(String(255), nullable=True)  # Pour stocker une image de la pièce
     is_active = Column(Boolean, default=True)

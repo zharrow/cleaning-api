@@ -1,62 +1,97 @@
+# alembic/env.py - CONFIGURATION CORRIGÉE POUR UNICODE
+import os
+import sys
 from logging.config import fileConfig
 from sqlalchemy import engine_from_config, pool
 from alembic import context
-import os
-import sys
 
-# Ajouter le répertoire racine au path
+# === FIX UNICODE POUR WINDOWS ===
+# Forcer l'encodage UTF-8
+if sys.platform == "win32":
+    import codecs
+    sys.stdout = codecs.getwriter("utf-8")(sys.stdout.detach())
+    sys.stderr = codecs.getwriter("utf-8")(sys.stderr.detach())
+
+# Ajouter le répertoire racine au PYTHONPATH
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Importer les modèles
-from decouple import config
+from api.models.base import Base
+from api.core.config import settings
 
 # Configuration Alembic
-config_alembic = context.config
+config = context.config
 
-# Récupérer l'URL de la base de données depuis les variables d'environnement
-database_url = config("DATABASE_URL", default="postgresql://user:password@localhost/cleaning_db")
-config_alembic.set_main_option("sqlalchemy.url", database_url)
+# Configurer les logs si le fichier de config existe
+if config.config_file_name is not None:
+    fileConfig(config.config_file_name)
 
-# Interpret the config file for Python logging.
-if config_alembic.config_file_name is not None:
-    fileConfig(config_alembic.config_file_name)
+# Métadonnées des modèles
+target_metadata = Base.metadata
 
-# Métadonnées pour l'autogénération
-# Pour éviter d'importer l'application complète (et ses Settings) lors des migrations,
-# on désactive l'autogénération dans ce projet et on définit target_metadata à None.
-# Les migrations sont écrites manuellement dans alembic/versions.
-target_metadata = None
+def get_database_url():
+    """
+    Récupère l'URL de la base de données avec encodage UTF-8 forcé
+    """
+    # Utiliser les settings du projet
+    db_url = settings.DATABASE_URL
+    
+    # Forcer l'encodage UTF-8 si pas déjà présent
+    if "client_encoding" not in db_url:
+        separator = "&" if "?" in db_url else "?"
+        db_url = f"{db_url}{separator}client_encoding=utf8"
+    
+    return db_url
 
 def run_migrations_offline() -> None:
-    """Run migrations in 'offline' mode."""
-    url = config_alembic.get_main_option("sqlalchemy.url")
+    """
+    Exécuter les migrations en mode 'offline'
+    """
+    url = get_database_url()
+    
     context.configure(
         url=url,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        compare_type=True,
+        compare_server_default=True,
     )
 
     with context.begin_transaction():
         context.run_migrations()
 
 def run_migrations_online() -> None:
-    """Run migrations in 'online' mode."""
+    """
+    Exécuter les migrations en mode 'online'
+    """
+    # Configuration pour forcer UTF-8
+    configuration = config.get_section(config.config_ini_section)
+    configuration["sqlalchemy.url"] = get_database_url()
+    
+    # Options supplémentaires pour PostgreSQL + UTF-8
     connectable = engine_from_config(
-        config_alembic.get_section(config_alembic.config_ini_section),
+        configuration,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        # Options pour forcer UTF-8
+        connect_args={
+            "client_encoding": "utf8",
+            "options": "-c timezone=UTC"
+        }
     )
 
     with connectable.connect() as connection:
         context.configure(
             connection=connection,
-            target_metadata=target_metadata
+            target_metadata=target_metadata,
+            compare_type=True,
+            compare_server_default=True,
         )
 
         with context.begin_transaction():
             context.run_migrations()
 
+# Exécution
 if context.is_offline_mode():
     run_migrations_offline()
 else:
