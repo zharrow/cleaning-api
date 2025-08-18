@@ -1,11 +1,17 @@
-# api/models/base.py
-from sqlalchemy import Column, String, DateTime, func
+from sqlalchemy import UUID, Column, String, DateTime, func
 from sqlalchemy.ext.declarative import declarative_base
 import uuid
 from datetime import datetime
 
 # Base pour tous les modèles
 Base = declarative_base()
+
+class BaseModel(Base):
+    """Modèle de base avec des champs communs"""
+    __abstract__ = True
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 class TimestampedModel(Base):
     """

@@ -33,12 +33,13 @@ def get_database_url():
     Récupère l'URL de la base de données avec encodage UTF-8 forcé
     """
     # Utiliser les settings du projet
-    db_url = settings.DATABASE_URL
+    # db_url = settings.DATABASE_URL
+    db_url = "postgresql://username:password@localhost:5432/cleaning_db"
     
     # Forcer l'encodage UTF-8 si pas déjà présent
     if "client_encoding" not in db_url:
         separator = "&" if "?" in db_url else "?"
-        db_url = f"{db_url}{separator}client_encoding=utf8"
+        db_url = f"{db_url}{separator}*"
     
     return db_url
 
@@ -74,22 +75,22 @@ def run_migrations_online() -> None:
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
         # Options pour forcer UTF-8
-        connect_args={
-            "client_encoding": "utf8",
-            "options": "-c timezone=UTC"
-        }
+        # connect_args={
+        #     "client_encoding": "utf8",
+        #     "options": "-c timezone=UTC"
+        # }
     )
 
-    with connectable.connect() as connection:
-        context.configure(
-            connection=connection,
-            target_metadata=target_metadata,
-            compare_type=True,
-            compare_server_default=True,
-        )
+    # with connectable.connect() as connection:
+    #     context.configure(
+    #         connection=connection,
+    #         target_metadata=target_metadata,
+    #         compare_type=True,
+    #         compare_server_default=True,
+    #     )
 
-        with context.begin_transaction():
-            context.run_migrations()
+    #     with context.begin_transaction():
+    #         context.run_migrations()
 
 # Exécution
 if context.is_offline_mode():

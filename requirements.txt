@@ -9,17 +9,17 @@ psycopg2-binary==2.9.9
 
 # Configuration avec Pydantic v2
 pydantic-settings==2.0.3
-python-decouple==3.8  # Pour les variables d'environnement
+python-decouple==3.8
 
 # Cache Redis (optionnel mais recommandé)
 redis==5.0.1
-hiredis==2.2.3  # Pour de meilleures performances Redis
+hiredis==2.2.3
 
 # Authentification
 firebase-admin==6.2.0
-pyjwt==2.8.0  # Pour JWT (backup/futur)
-passlib[bcrypt]==1.7.4  # Pour hash passwords (futur)
-python-jose[cryptography]==3.3.0  # JWT alternatif
+pyjwt==2.8.0
+passlib[bcrypt]==1.7.4
+python-jose[cryptography]==3.3.0
 
 # Export PDF
 weasyprint==60.2
@@ -29,43 +29,43 @@ jinja2==3.1.2
 apscheduler==3.10.4
 
 # Logging et monitoring
-python-json-logger==2.0.7  # Pour logs JSON structurés
-sentry-sdk[fastapi]==1.38.0  # Monitoring erreurs (optionnel)
+python-json-logger==2.0.7
+sentry-sdk[fastapi]==1.38.0
 
 # Validation et sécurité
 email-validator==2.1.0
 python-multipart==0.0.6
 
 # Compression
-brotli==1.1.0  # Pour compression Brotli
+brotli==1.1.0
 
 # Utilitaires
 pillow==10.1.0
 aiofiles==23.2.0
-httpx==0.25.2  # Client HTTP async
+httpx==0.25.2
 
 # Performance
-orjson==3.9.10  # JSON plus rapide
-ujson==5.8.0  # Alternative JSON rapide
+orjson==3.9.10
+ujson==5.8.0
 
 # Tests
 pytest==7.4.3
 pytest-asyncio==0.21.1
-pytest-cov==4.1.0  # Coverage
+pytest-cov==4.1.0
 httpx==0.25.2
-faker==20.1.0  # Génération de données de test
+faker==20.1.0
 
 # Développement
 black==23.11.0
 flake8==6.1.0
-mypy==1.7.1  # Type checking
-pre-commit==3.5.0  # Git hooks
-ipython==8.18.1  # Shell interactif
+mypy==1.7.1
+pre-commit==3.5.0
+ipython==8.18.1
 
 # Documentation
-mkdocs==1.5.3  # Documentation
-mkdocs-material==9.4.14  # Theme Material
-mkdocstrings[python]==0.24.0  # Documentation auto
+mkdocs==1.5.3
+mkdocs-material==9.4.14
+mkdocstrings[python]==0.24.0
 
 # Securité
 bleach==6.1.0

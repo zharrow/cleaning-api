@@ -1,4 +1,4 @@
-.PHONY: help install dev test lint format clean docker-up docker-down backup restore migrate docs
+.PHONY: help install dev test lint format clean docker-up docker-down backup restore docs
 
 # Variables
 PYTHON := python3
@@ -58,6 +58,7 @@ docker-up: ## Démarre les services Docker
 	@echo "API: http://localhost:8000"
 	@echo "PostgreSQL: localhost:5432"
 	@echo "Redis: localhost:6379"
+	@echo "Adminer: http://localhost:8080"
 
 docker-down: ## Arrête les services Docker
 	$(DOCKER_COMPOSE) down
@@ -72,36 +73,27 @@ docker-shell: ## Ouvre un shell dans le container app
 	$(DOCKER_COMPOSE) exec app /bin/sh
 
 # Base de données
-db-create: ## Crée la base de données
-	$(PYTHON) -c "from api.core.database import engine, Base; Base.metadata.create_all(bind=engine)"
+db-create: ## Crée la base de données et tables
+	$(PYTHON) init_db.py
 
-db-drop: ## Supprime toutes les tables
-	$(PYTHON) -c "from api.core.database import engine, Base; Base.metadata.drop_all(bind=engine)"
+db-reset: ## Recrée complètement la base de données
+	$(DOCKER_COMPOSE) down -v
+	$(DOCKER_COMPOSE) up -d db redis
+	sleep 10
+	$(PYTHON) init_db.py
 
 db-seed: ## Remplit la base avec des données de test
 	$(PYTHON) scripts/seed_data.py
 
-migrate: ## Crée une nouvelle migration
-	alembic revision --autogenerate -m "$(msg)"
-
-migrate-up: ## Applique les migrations
-	alembic upgrade head
-
-migrate-down: ## Annule la dernière migration
-	alembic downgrade -1
-
-migrate-history: ## Affiche l'historique des migrations
-	alembic history
-
 # Backup & Restore
 backup: ## Créé un backup de la base de données
 	@mkdir -p backups
-	@docker exec -t cleaning-backend-db-1 pg_dumpall -c -U postgres > backups/backup_$(shell date +%Y%m%d_%H%M%S).sql
+	@docker exec -t cleaning-api-db-1 pg_dumpall -c -U postgres > backups/backup_$(shell date +%Y%m%d_%H%M%S).sql
 	@echo "$(GREEN)✅ Backup créé$(NC)"
 
 restore: ## Restaure la base de données depuis un backup
 	@test -n "$(file)" || (echo "$(RED)❌ Usage: make restore file=backups/backup_XXXXXX.sql$(NC)" && exit 1)
-	@docker exec -i cleaning-backend-db-1 psql -U postgres < $(file)
+	@docker exec -i cleaning-api-db-1 psql -U postgres < $(file)
 	@echo "$(GREEN)✅ Base de données restaurée$(NC)"
 
 # Documentation
@@ -139,3 +131,11 @@ shell: ## Ouvre un shell Python avec le contexte de l'app
 
 urls: ## Liste toutes les routes de l'API
 	$(PYTHON) scripts/list_routes.py
+
+# Commandes de démarrage rapide
+quick-start: ## Démarrage rapide complet
+	make docker-up
+	sleep 15
+	@echo "$(GREEN)🚀 Application prête !$(NC)"
+	@echo "📊 API: http://localhost:8000/docs"
+	@echo "🗄️ Base: http://localhost:8080"
