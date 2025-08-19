@@ -26,13 +26,14 @@ services:
     
     command: >
       bash -c "
-        echo 'Installation des dependances systeme...' &&
+        echo 'Démarrage de API Cleaning...' &&
+        echo 'Installation des dépendances système...' &&
         apt-get update && apt-get install -y libpq-dev gcc curl &&
-        echo 'Installation des dependances Python...' &&
-        pip install --no-cache-dir fastapi uvicorn sqlalchemy psycopg2-binary pydantic-settings firebase-admin &&
-        echo 'Initialisation avec UUID coherents...' &&
+        echo 'Installation de TOUTES les dépendances Python...' &&
+        pip install --no-cache-dir -r requirements.txt &&
+        echo 'Initialisation de la base de données...' &&
         python init_db.py &&
-        echo 'Demarrage API avec Firebase...' &&
+        echo 'Démarrage du serveur API...' &&
         uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
       "
 
