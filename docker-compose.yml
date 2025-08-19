@@ -1,53 +1,60 @@
-version: '3.8'
-
 services:
+  # === APPLICATION FASTAPI ===
   app:
-    build: .
+    image: python:3.11-slim
+    container_name: cleaning-api-app
+    working_dir: /app
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=postgresql://postgres:password@db:5432/cleaning_db
-      - REDIS_URL=redis://redis:6379/0
-      - FIREBASE_CREDENTIALS_PATH=/app/firebase-credentials.json
+      - DATABASE_URL=postgresql://postgres:postgres_pass@db:5432/cleaning_db
       - ENVIRONMENT=development
       - DEBUG=true
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
+    
     volumes:
+      - .:/app
       - ./uploads:/app/uploads
       - ./logs:/app/logs
-      - ./firebase-credentials.json:/app/firebase-credentials.json:ro
+    
     depends_on:
       db:
         condition: service_healthy
-      redis:
-        condition: service_healthy
+    
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+    
     command: >
-      sh -c "
-        echo '🚀 Démarrage de l\'application...' &&
+      bash -c "
+        echo 'Installation des dependances systeme...' &&
+        apt-get update && apt-get install -y libpq-dev gcc curl &&
+        echo 'Installation des dependances Python...' &&
+        pip install --no-cache-dir fastapi uvicorn sqlalchemy psycopg2-binary pydantic-settings firebase-admin &&
+        echo 'Initialisation avec UUID coherents...' &&
         python init_db.py &&
-        echo '✅ Base de données initialisée' &&
+        echo 'Demarrage API avec Firebase...' &&
         uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
       "
 
+  # === BASE DE DONNÉES POSTGRESQL ===
   db:
     image: postgres:15-alpine
+    container_name: cleaning-api-db
     environment:
       - POSTGRES_DB=cleaning_db
       - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=password
+      - POSTGRES_PASSWORD=postgres_pass
       - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
+    
     ports:
       - "5432:5432"
+    
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./backups:/backups
+    
     restart: unless-stopped
+    
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d cleaning_db"]
       interval: 10s
@@ -55,53 +62,39 @@ services:
       retries: 5
       start_period: 30s
 
+  # === CACHE REDIS ===
   redis:
     image: redis:7-alpine
+    container_name: cleaning-api-redis
     ports:
       - "6379:6379"
+    
     volumes:
       - redis_data:/data
+    
+    command: redis-server --appendonly yes
+    
     restart: unless-stopped
+    
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
-    command: redis-server --appendonly yes
 
-  # Service de backup automatique
-  backup:
-    image: postgres:15-alpine
-    environment:
-      - PGPASSWORD=password
-    volumes:
-      - ./backups:/backups
-    depends_on:
-      db:
-        condition: service_healthy
-    restart: unless-stopped
-    command: >
-      sh -c "
-        echo '📁 Service de backup démarré' &&
-        while true; do
-          echo '💾 Création du backup...' &&
-          pg_dump -h db -U postgres -d cleaning_db > /backups/backup_$$(date +%Y%m%d_%H%M%S).sql &&
-          echo '✅ Backup créé' &&
-          find /backups -name '*.sql' -mtime +7 -delete &&
-          echo '🧹 Anciens backups supprimés' &&
-          sleep 86400
-        done
-      "
-
-  # Service de monitoring (optionnel)
+  # === INTERFACE DB ===
   adminer:
     image: adminer:4.8.1
+    container_name: cleaning-api-adminer
     ports:
       - "8080:8080"
+    
     environment:
       - ADMINER_DEFAULT_SERVER=db
+    
     depends_on:
       - db
+    
     restart: unless-stopped
 
 volumes:

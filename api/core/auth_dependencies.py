@@ -7,7 +7,6 @@ from api.core.security import get_current_user
 class RequireRole:
     """
     Dependency pour vérifier le rôle de l'utilisateur
-    Simplifié : GERANTE a accès à tout par défaut
     """
     
     def __init__(self, allowed_roles: List[UserRole]):
@@ -22,7 +21,7 @@ class RequireRole:
             )
         
         # GERANTE et ADMIN ont accès à tout
-        if current_user.role in [UserRole.ADMIN, UserRole.GERANTE]:
+        if current_user.role in [UserRole.ADMIN, UserRole.GERANTE, UserRole.MANAGER]:
             return current_user
             
         # Sinon vérifier les rôles spécifiques
@@ -38,7 +37,7 @@ class RequireRole:
 def require_management_access(current_user: User = Depends(get_current_user)) -> User:
     """
     Vérifie que l'utilisateur peut gérer l'application
-    GERANTE et ADMIN autorisés
+    GERANTE, MANAGER et ADMIN autorisés
     """
     if not current_user.is_active:
         raise HTTPException(
@@ -74,6 +73,6 @@ require_gerante = require_management_access
 # Pour les cas spéciaux
 require_admin = require_admin_access
 
-# Instances pour usage direct
-require_any_role = RequireRole([UserRole.ADMIN, UserRole.GERANTE, UserRole.PERFORMER])
-require_active_user = RequireRole([UserRole.ADMIN, UserRole.GERANTE])  # Par défaut
+# Instances pour usage direct (sans PERFORMER qui n'existe pas)
+require_any_role = RequireRole([UserRole.ADMIN, UserRole.GERANTE, UserRole.MANAGER])
+require_active_user = RequireRole([UserRole.ADMIN, UserRole.GERANTE, UserRole.MANAGER])

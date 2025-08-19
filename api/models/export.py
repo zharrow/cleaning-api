@@ -7,7 +7,9 @@ from api.models.base import BaseModel
 class Export(BaseModel):
     __tablename__ = "exports"
     
+    # Clé étrangère avec le bon type UUID
     session_id = Column(UUID(as_uuid=True), ForeignKey("cleaning_sessions.id"), index=True)
+    
     pdf_url = Column(String(500), nullable=True)  # Chemin vers le PDF généré
     zip_url = Column(String(500), nullable=True)  # Chemin vers le ZIP des photos
     exported_at = Column(DateTime, default=datetime.utcnow, nullable=False)

@@ -1,10 +1,8 @@
 from sqlalchemy import Column, String, Text, Boolean, Integer, Time, ForeignKey, JSON, Enum
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
-from api.models.base import BaseModel
+from api.models.base import TimestampedModel
 import enum
-from sqlalchemy import JSON, Enum
-
 
 class TaskType(enum.Enum):
     DAILY = "daily"
@@ -12,7 +10,7 @@ class TaskType(enum.Enum):
     MONTHLY = "monthly"
     OCCASIONAL = "occasional"
 
-class TaskTemplate(BaseModel):
+class TaskTemplate(TimestampedModel):
     __tablename__ = "task_templates"
     
     title = Column(String(200), nullable=False)  # Renommé de 'name' à 'title'
@@ -21,9 +19,10 @@ class TaskTemplate(BaseModel):
     type = Column(Enum(TaskType), default=TaskType.DAILY, nullable=False)
     is_active = Column(Boolean, default=True)
 
-class AssignedTask(BaseModel):
+class AssignedTask(TimestampedModel):
     __tablename__ = "assigned_tasks"
     
+    # Clés étrangères avec le bon type UUID
     task_template_id = Column(UUID(as_uuid=True), ForeignKey("task_templates.id"))
     room_id = Column(UUID(as_uuid=True), ForeignKey("rooms.id"))
     default_performer_id = Column(UUID(as_uuid=True), ForeignKey("performers.id"), nullable=True)

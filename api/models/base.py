@@ -1,4 +1,5 @@
-from sqlalchemy import UUID, Column, String, DateTime, func
+from sqlalchemy import Column, String, DateTime, func
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.declarative import declarative_base
 import uuid
 from datetime import datetime
@@ -7,34 +8,32 @@ from datetime import datetime
 Base = declarative_base()
 
 class BaseModel(Base):
-    """Modèle de base avec des champs communs"""
+    """Modèle de base avec des champs communs - Version UUID cohérente"""
     __abstract__ = True
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-class TimestampedModel(Base):
-    """
-    Modèle de base avec timestamps automatiques et ID UUID
-    """
-    __abstract__ = True
-    
-    # ID unique en UUID
+    # ID unique en UUID (cohérent partout)
     id = Column(
-        String(36), 
+        UUID(as_uuid=True), 
         primary_key=True, 
-        default=lambda: str(uuid.uuid4()),
+        default=uuid.uuid4,
         unique=True,
         nullable=False
     )
     
-    # Timestamps automatiques
+    # Timestamp de création
     created_at = Column(
         DateTime(timezone=True), 
         server_default=func.now(),
         nullable=False
     )
+
+class TimestampedModel(BaseModel):
+    """
+    Modèle de base avec timestamps automatiques et ID UUID
+    """
+    __abstract__ = True
     
+    # Timestamp de mise à jour
     updated_at = Column(
         DateTime(timezone=True), 
         server_default=func.now(),

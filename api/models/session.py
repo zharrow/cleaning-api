@@ -30,6 +30,7 @@ class CleaningSession(TimestampedModel):
 class CleaningLog(BaseModel):
     __tablename__ = "cleaning_logs"
     
+    # Clés étrangères avec le bon type UUID
     session_id = Column(UUID(as_uuid=True), ForeignKey("cleaning_sessions.id"), index=True)
     assigned_task_id = Column(UUID(as_uuid=True), ForeignKey("assigned_tasks.id"))
     
