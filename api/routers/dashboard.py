@@ -1,4 +1,4 @@
-# api/routers/dashboard.py - NOUVEAU FICHIER COMPLET
+# api/routers/dashboard.py - CORRECTION DU DOUBLE PREFIX
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
@@ -13,7 +13,8 @@ from api.models.session import CleaningSession, CleaningLog, SessionStatus, LogS
 from api.models.task import AssignedTask
 from api.models.performer import Performer
 
-router = APIRouter(prefix="/dashboard", tags=["dashboard"])
+# ✅ CORRIGÉ: Supprimer les tags ici car ils sont gérés dans main.py
+router = APIRouter()
 
 @router.get("")
 async def get_dashboard_data(

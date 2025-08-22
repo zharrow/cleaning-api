@@ -1,9 +1,7 @@
-
 import uuid
 from datetime import datetime, timedelta
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Request
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr
 import firebase_admin
@@ -13,10 +11,13 @@ import logging
 from api.core.database import get_db
 from api.models.user import User, UserRole
 from api.schemas.user import UserResponse
+# Import de get_current_user depuis security.py pour éviter la duplication
+from api.core.security import get_current_user
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/auth", tags=["authentication"])
+# ✅ CORRIGÉ: Supprimer les tags ici car ils sont gérés dans main.py
+router = APIRouter()
 
 # Schémas Pydantic pour l'authentification
 class LoginRequest(BaseModel):
@@ -36,9 +37,6 @@ class RegisterRequest(BaseModel):
     full_name: str
     role: UserRole = UserRole.GERANTE
 
-# Security
-security = HTTPBearer()
-
 async def verify_firebase_token(id_token: str) -> dict:
     """Vérifie un token Firebase et retourne les claims"""
     try:
@@ -49,46 +47,6 @@ async def verify_firebase_token(id_token: str) -> dict:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token Firebase invalide"
-        )
-
-async def get_current_user(    
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: Session = Depends(get_db),
-    request: Request = None
-) -> User:
-    """Récupère l'utilisateur actuel depuis le token"""
-    try:
-        token = credentials.credentials
-        decoded_token = await verify_firebase_token(token)
-        firebase_uid = decoded_token['uid']
-        
-        user = db.query(User).filter(User.firebase_uid == firebase_uid).first()
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Utilisateur non trouvé"
-            )
-        
-        # Ajouter l'user_id au contexte de logging si request disponible
-        if request and hasattr(request.state, "request_id"):
-            logger.info(
-                "User authenticated",
-                extra={
-                    "request_id": request.state.request_id,
-                    "user_id": str(user.id),
-                    "user_name": user.full_name
-                }
-            )
-        
-        return user
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Erreur authentification: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentification échouée"
         )
 
 @router.post("/login", response_model=LoginResponse)
