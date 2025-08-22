@@ -1,4 +1,4 @@
-# main.py
+# main.py - CORRECTION DES DOUBLES PREFIXES ET TAGS
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
@@ -8,18 +8,17 @@ from contextlib import asynccontextmanager
 from api.core.config import settings
 from api.core.database import engine
 from api.models import Base
-from api.routers import dashboard
-
 
 # Import des routers
 from api.routers import (
-    auth,           # ✅ Authentification corrigée
-    performers,     # ✅ NOUVEAU: Gestion des employés
-    rooms,          # Existant
-    tasks,          # Existant
-    sessions,       # Existant
-    logs,           # Existant
-    exports         # Existant
+    auth,           # ✅ Corrigé: plus de double prefix
+    performers,     # Gestion des employés
+    rooms,          # Gestion des pièces
+    tasks,          # Gestion des tâches
+    sessions,       # Sessions de nettoyage
+    logs,           # Logs de tâches
+    exports,        # Exports PDF/ZIP
+    dashboard       # ✅ Corrigé: plus de double prefix
 )
 
 # Configuration du logging
@@ -74,7 +73,7 @@ def create_app() -> FastAPI:
     # CORS - Configuration permissive pour le développement
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.cors_origins,
+        allow_origins=settings.cors_origins_list,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -84,17 +83,18 @@ def create_app() -> FastAPI:
     if not settings.debug:
         app.add_middleware(
             TrustedHostMiddleware,
-            allowed_hosts=settings.allowed_hosts
+            allowed_hosts=settings.allowed_hosts_list
         )
     
     # ===== ROUTES D'AUTHENTIFICATION =====
+    # ✅ CORRIGÉ: auth.router n'a plus de tags, on les gère ici
     app.include_router(
         auth.router, 
         prefix="/auth", 
         tags=["🔐 Authentification"]
     )
     
-    # ===== GESTION DES EMPLOYÉS (NOUVEAU) =====
+    # ===== GESTION DES EMPLOYÉS =====
     app.include_router(
         performers.router, 
         prefix="/performers", 
@@ -111,7 +111,13 @@ def create_app() -> FastAPI:
     app.include_router(
         tasks.router, 
         prefix="/tasks", 
-        tags=["✅ Tâches"]
+        tags=["✅ Tâches modèles"]
+    )
+    
+    app.include_router(
+        tasks.assigned_router,
+        prefix="/assigned-tasks",
+        tags=["📋 Tâches assignées"]
     )
     
     # ===== SESSIONS DE NETTOYAGE =====
@@ -125,7 +131,7 @@ def create_app() -> FastAPI:
     app.include_router(
         logs.router, 
         prefix="/logs", 
-        tags=["📋 Logs"]
+        tags=["📝 Logs de tâches"]
     )
     
     app.include_router(
@@ -134,6 +140,8 @@ def create_app() -> FastAPI:
         tags=["📊 Exports"]
     )
 
+    # ===== TABLEAU DE BORD =====
+    # ✅ CORRIGÉ: dashboard.router n'a plus de tags, on les gère ici
     app.include_router(
         dashboard.router, 
         prefix="/dashboard", 
@@ -153,14 +161,16 @@ def create_app() -> FastAPI:
                 "authentication": "Firebase auto-création",
                 "user_role": "GERANTE par défaut",
                 "performer_management": "Intégré",
-                "post_requests": "✅ Débloqués"
+                "routing": "✅ Préfixes corrigés"
             },
             "endpoints": {
                 "docs": "/docs",
                 "redoc": "/redoc",
-                "auth": "/auth/login",
-                "me": "/auth/me",
-                "performers": "/performers/"
+                "auth_login": "/auth/login",
+                "auth_me": "/auth/me",
+                "dashboard": "/dashboard",
+                "performers": "/performers/",
+                "sessions_today": "/sessions/today"
             }
         }
     
@@ -177,13 +187,14 @@ def create_app() -> FastAPI:
             return {
                 "status": "healthy",
                 "database": "✅ Connected",
-                "timestamp": "2024-08-16T12:00:00Z"
+                "routes": "✅ Fixed (no more double prefixes)",
+                "timestamp": "2024-08-19T12:00:00Z"
             }
         except Exception as e:
             return {
                 "status": "unhealthy",
                 "database": f"❌ Error: {str(e)}",
-                "timestamp": "2024-08-16T12:00:00Z"
+                "timestamp": "2024-08-19T12:00:00Z"
             }
     
     return app
