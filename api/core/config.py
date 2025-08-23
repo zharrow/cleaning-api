@@ -24,7 +24,8 @@ class Settings(BaseSettings):
     # Sécurité
     secret_key: str = "your-secret-key-here"
     allowed_hosts: str = "localhost,127.0.0.1"
-    cors_origins: str = "*"
+    cors_origins: str = "http://localhost:4200,http://localhost:3000,http://localhost:5173,http://localhost:8080"
+
     
     # Rate limiting
     rate_limit_requests: int = 100

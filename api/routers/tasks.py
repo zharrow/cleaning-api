@@ -41,7 +41,7 @@ async def update_task_template(
     task: Optional[TaskTemplate] = db.query(TaskTemplate).filter(TaskTemplate.id == task_template_id, TaskTemplate.is_active == True).first()
     if not task:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Modèle de tâche introuvable")
-    for k, v in payload.dict().items():
+    for k, v in payload.model_dump().items():
         setattr(task, k, v)
     db.commit()
     db.refresh(task)
@@ -67,7 +67,7 @@ async def create_assigned_task(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    db_task = AssignedTask(**task.dict())
+    db_task = AssignedTask(**task.model_dump())
     db.add(db_task)
     db.commit()
     db.refresh(db_task)
@@ -90,7 +90,7 @@ async def update_assigned_task(
     task: Optional[AssignedTask] = db.query(AssignedTask).filter(AssignedTask.id == assigned_task_id, AssignedTask.is_active == True).first()
     if not task:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tâche assignée introuvable")
-    for k, v in payload.dict().items():
+    for k, v in payload.model_dump().items():
         setattr(task, k, v)
     db.commit()
     db.refresh(task)
