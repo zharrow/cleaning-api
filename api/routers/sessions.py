@@ -46,10 +46,7 @@ async def get_today_session(
     session = db.query(CleaningSession).filter(CleaningSession.date == today).first()
     
     if not session:
-        session = CleaningSession(date=today)
-        db.add(session)
-        db.commit()
-        db.refresh(session)
+        raise HTTPException(status_code=404, detail="Aucune session trouvée pour aujourd'hui")
     
     return session
 

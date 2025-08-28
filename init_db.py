@@ -22,18 +22,18 @@ def enable_uuid_extension():
             # Activer l'extension UUID-OSSP
             conn.execute(text("CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\""))
             conn.commit()
-            print("✅ Extension UUID-OSSP activée")
+            print("Extension UUID-OSSP activee")
         
         return engine
         
     except Exception as e:
-        print(f"❌ Erreur activation UUID: {e}")
+        print(f"ERREUR - Erreur activation UUID: {e}")
         return None
 
 def create_tables():
     """Crée toutes les tables avec les modèles corrigés"""
     try:
-        print("🗄️ Connexion à la base de données...")
+        print("Connexion a la base de donnees...")
         
         # Activer l'extension UUID d'abord
         engine = enable_uuid_extension()
@@ -46,9 +46,9 @@ def create_tables():
         with engine.connect() as conn:
             result = conn.execute(text("SELECT 1 as test"))
             test_row = result.fetchone()
-            print(f"✅ Connexion réussie: {test_row}")
+            print(f"SUCCESS - Connexion reussie: {test_row}")
         
-        print("🏗️ Import des modèles avec types UUID cohérents...")
+        print("Import des modeles avec types UUID coherents...")
         
         # Import de la base
         from api.models.base import Base
@@ -61,11 +61,11 @@ def create_tables():
         from api.models.session import CleaningSession, CleaningLog
         from api.models.export import Export
         
-        print("✅ Tous les modèles importés")
+        print("SUCCESS - Tous les modeles importes")
         
-        print("🏗️ Création des tables...")
+        print("Creation des tables...")
         Base.metadata.create_all(bind=engine)
-        print("✅ Tables créées avec succès")
+        print("SUCCESS - Tables creees avec succes")
         
         # Vérifier les tables créées
         with engine.connect() as conn:
@@ -77,14 +77,14 @@ def create_tables():
             """))
             tables = [row[0] for row in result.fetchall()]
             if tables:
-                print(f"📋 Tables créées: {', '.join(tables)}")
+                print(f"Tables creees: {', '.join(tables)}")
             else:
-                print("⚠️ Aucune table trouvée")
+                print("WARNING - Aucune table trouvee")
         
         return True
         
     except Exception as e:
-        print(f"❌ Erreur lors de la création des tables: {e}")
+        print(f"ERREUR - Erreur lors de la creation des tables: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -92,7 +92,7 @@ def create_tables():
 def create_sample_data():
     """Crée des données d'exemple"""
     try:
-        print("🌱 Création de données d'exemple...")
+        print("Creation de donnees d'exemple...")
         
         from sqlalchemy import create_engine
         from sqlalchemy.orm import sessionmaker
@@ -110,7 +110,7 @@ def create_sample_data():
             # Vérifier si des données existent déjà
             user_count = db.query(User).count()
             if user_count > 0:
-                print(f"ℹ️ {user_count} utilisateur(s) déjà présent(s)")
+                print(f"INFO - {user_count} utilisateur(s) deja present(s)")
                 return True
             
             # Créer un utilisateur test
@@ -169,42 +169,42 @@ def create_sample_data():
                 db.add(task)
             
             db.commit()
-            print("✅ Données d'exemple créées")
+            print("SUCCESS - Donnees d'exemple creees")
             return True
             
         except Exception as e:
             db.rollback()
-            print(f"⚠️ Erreur création données d'exemple: {e}")
+            print(f"WARNING - Erreur creation donnees d'exemple: {e}")
             return True  # Pas critique
         finally:
             db.close()
             
     except Exception as e:
-        print(f"⚠️ Erreur données d'exemple: {e}")
+        print(f"WARNING - Erreur donnees d'exemple: {e}")
         return True  # Pas critique
 
 def main():
     """Fonction principale d'initialisation"""
-    print("🚀 Initialisation de la base de données avec UUID...")
+    print("Initialisation de la base de donnees avec UUID...")
     
     # Créer les répertoires
     try:
         for directory in ["uploads", "logs"]:
             Path(directory).mkdir(exist_ok=True)
-        print("📁 Répertoires créés")
+        print("Repertoires crees")
     except Exception as e:
-        print(f"⚠️ Impossible de créer les répertoires: {e}")
+        print(f"WARNING - Impossible de creer les repertoires: {e}")
     
     # Créer les tables
     if not create_tables():
-        print("❌ Échec de la création des tables")
+        print("ERREUR - Echec de la creation des tables")
         sys.exit(1)
     
     # Créer des données d'exemple
     create_sample_data()
     
-    print("✅ Initialisation terminée!")
-    print("📝 Services disponibles:")
+    print("SUCCESS - Initialisation terminee!")
+    print("Services disponibles:")
     print("1. API: http://localhost:8000")
     print("2. Documentation: http://localhost:8000/docs") 
     print("3. Interface DB: http://localhost:8080")

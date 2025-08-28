@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from api.core.database import get_db
 from api.core.security import get_current_user
-from api.core.auth_dependencies import require_gerante
+from api.core.auth_dependencies import require_manager
 from api.models.user import User
 from api.models.task import TaskTemplate, AssignedTask
 from api.schemas.task import TaskTemplateCreate, TaskTemplateResponse, AssignedTaskCreate, AssignedTaskResponse
@@ -12,13 +12,16 @@ router = APIRouter()
 assigned_router = APIRouter()
 
 # Task Templates
-@router.post("", response_model=TaskTemplateResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_gerante)])
+@router.post("", response_model=TaskTemplateResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_manager)])
 async def create_task_template(
     task: TaskTemplateCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    db_task = TaskTemplate(**task.dict())
+    # Mapper les champs frontend vers les champs du modèle
+    task_data = task.model_dump()
+    task_data['title'] = task_data.pop('name')  # Mapper name -> title
+    db_task = TaskTemplate(**task_data)
     db.add(db_task)
     db.commit()
     db.refresh(db_task)
@@ -31,7 +34,7 @@ async def get_task_templates(
 ):
     return db.query(TaskTemplate).filter(TaskTemplate.is_active == True).all()
 
-@router.put("/{task_template_id}", response_model=TaskTemplateResponse, dependencies=[Depends(require_gerante)])
+@router.put("/{task_template_id}", response_model=TaskTemplateResponse, dependencies=[Depends(require_manager)])
 async def update_task_template(
     task_template_id: str,
     payload: TaskTemplateCreate,
@@ -47,7 +50,7 @@ async def update_task_template(
     db.refresh(task)
     return task
 
-@router.delete("/{task_template_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(require_gerante)])
+@router.delete("/{task_template_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(require_manager)])
 async def delete_task_template(
     task_template_id: str,
     db: Session = Depends(get_db),
@@ -61,7 +64,7 @@ async def delete_task_template(
     return None
 
 # Assigned Tasks
-@assigned_router.post("", response_model=AssignedTaskResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_gerante)])
+@assigned_router.post("", response_model=AssignedTaskResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_manager)])
 async def create_assigned_task(
     task: AssignedTaskCreate,
     db: Session = Depends(get_db),
@@ -78,9 +81,14 @@ async def get_assigned_tasks(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    return db.query(AssignedTask).filter(AssignedTask.is_active == True).all()
+    from sqlalchemy.orm import joinedload
+    return db.query(AssignedTask).options(
+        joinedload(AssignedTask.task_template),
+        joinedload(AssignedTask.room),
+        joinedload(AssignedTask.default_performer)
+    ).filter(AssignedTask.is_active == True).all()
 
-@assigned_router.put("/{assigned_task_id}", response_model=AssignedTaskResponse, dependencies=[Depends(require_gerante)])
+@assigned_router.put("/{assigned_task_id}", response_model=AssignedTaskResponse, dependencies=[Depends(require_manager)])
 async def update_assigned_task(
     assigned_task_id: str,
     payload: AssignedTaskCreate,
@@ -96,7 +104,7 @@ async def update_assigned_task(
     db.refresh(task)
     return task
 
-@assigned_router.delete("/{assigned_task_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(require_gerante)])
+@assigned_router.delete("/{assigned_task_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(require_manager)])
 async def delete_assigned_task(
     assigned_task_id: str,
     db: Session = Depends(get_db),

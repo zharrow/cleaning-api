@@ -35,7 +35,7 @@ class RefreshTokenRequest(BaseModel):
 class RegisterRequest(BaseModel):
     id_token: str
     full_name: str
-    role: UserRole = UserRole.GERANTE
+    role: UserRole = UserRole.MANAGER
 
 async def verify_firebase_token(id_token: str) -> dict:
     """Vérifie un token Firebase et retourne les claims"""
@@ -71,11 +71,13 @@ async def login(
     
     if not user:
         # Auto-création de l'utilisateur s'il n'existe pas
-        # (vous pouvez désactiver cela et forcer l'inscription)
+        # Attribution du rôle admin par défaut
+        role = UserRole.ADMIN
+        
         user = User(
             firebase_uid=firebase_uid,
             full_name=decoded_token.get('name', email.split('@')[0]),
-            role=UserRole.GERANTE
+            role=role
         )
         db.add(user)
         db.commit()

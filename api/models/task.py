@@ -15,7 +15,9 @@ class TaskTemplate(TimestampedModel):
     
     title = Column(String(200), nullable=False)  # Renommé de 'name' à 'title'
     description = Column(Text)
+    category = Column(String(100))  # Nouveau champ pour la catégorie
     default_duration = Column(Integer, default=15, nullable=False)  # Durée en minutes
+    estimated_duration = Column(Integer, default=15, nullable=False)  # Durée estimée (pour compatibilité frontend)
     type = Column(Enum(TaskType), default=TaskType.DAILY, nullable=False)
     is_active = Column(Boolean, default=True)
 

@@ -3,14 +3,14 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from api.core.database import get_db
 from api.core.security import get_current_user
-from api.core.auth_dependencies import require_gerante
+from api.core.auth_dependencies import require_manager
 from api.models.user import User
 from api.models.room import Room
 from api.schemas.room import RoomCreate, RoomResponse
 
 router = APIRouter()
 
-@router.post("", response_model=RoomResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_gerante)])
+@router.post("", response_model=RoomResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_manager)])
 async def create_room(
     room: RoomCreate,
     db: Session = Depends(get_db),
@@ -29,7 +29,7 @@ async def get_rooms(
 ):
     return db.query(Room).filter(Room.is_active == True).order_by(Room.display_order).all()
 
-@router.put("/{room_id}", response_model=RoomResponse, dependencies=[Depends(require_gerante)])
+@router.put("/{room_id}", response_model=RoomResponse, dependencies=[Depends(require_manager)])
 async def update_room(
     room_id: str,
     payload: RoomCreate,
@@ -45,7 +45,7 @@ async def update_room(
     db.refresh(room)
     return room
 
-@router.delete("/{room_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(require_gerante)])
+@router.delete("/{room_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(require_manager)])
 async def delete_room(
     room_id: str,
     db: Session = Depends(get_db),
