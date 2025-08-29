@@ -65,7 +65,7 @@ def get_suggested_schedule(db: Session, target_date: date) -> List[Dict[str, Any
         
         schedule_item = {
             "task_id": str(task.id),
-            "task_name": task.task_template.title,
+            "task_name": task.task_template.name,
             "room_name": task.room.name,
             "scheduled_time": scheduled_time.isoformat(),
             "duration_minutes": duration,
@@ -158,7 +158,7 @@ def get_overdue_tasks(db: Session) -> List[Dict[str, Any]]:
             if task:
                 overdue_tasks.append({
                     "task_id": task_id,
-                    "task_name": task.task_template.title,
+                    "task_name": task.task_template.name,
                     "room_name": task.room.name,
                     "postpone_count": info["postpone_count"],
                     "postponed_dates": info["dates"],
@@ -190,7 +190,7 @@ def optimize_task_schedule(db: Session, target_date: date) -> List[Dict[str, Any
             
             optimized_schedule.append({
                 "task_id": str(task.id),
-                "task_name": task.task_template.title,
+                "task_name": task.task_template.name,
                 "room_id": room_id,
                 "room_name": task.room.name,
                 "scheduled_time": current_time.isoformat(),

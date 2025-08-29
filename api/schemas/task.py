@@ -27,14 +27,14 @@ class FrequencyConfig(BaseModel):
         return v
 
 class TaskTemplateCreate(BaseModel):
-    name: str  # Le frontend envoie 'name', on le mappe vers 'title' dans le modèle
+    name: str
     description: Optional[str] = None
-    category: Optional[str] = None  # Nouveau champ 
-    estimated_duration: Optional[int] = None  # Nouveau champ
+    category: Optional[str] = None
+    estimated_duration: Optional[int] = None
 
 class TaskTemplateResponse(BaseModel):
     id: uuid.UUID
-    title: str
+    name: str
     description: Optional[str]
     category: Optional[str]
     estimated_duration: Optional[int]

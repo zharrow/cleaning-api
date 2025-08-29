@@ -162,7 +162,7 @@ def create_sample_data():
             
             for title, desc in tasks_data:
                 task = TaskTemplate(
-                    title=title,
+                    name=title,
                     description=desc,
                     type=TaskType.DAILY
                 )

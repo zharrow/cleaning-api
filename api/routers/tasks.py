@@ -18,9 +18,8 @@ async def create_task_template(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # Mapper les champs frontend vers les champs du modèle
+    # Créer le modèle directement depuis les données du schéma
     task_data = task.model_dump()
-    task_data['title'] = task_data.pop('name')  # Mapper name -> title
     db_task = TaskTemplate(**task_data)
     db.add(db_task)
     db.commit()
