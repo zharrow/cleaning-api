@@ -70,11 +70,50 @@ async def create_assigned_task(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    db_task = AssignedTask(**task.model_dump())
+    # Convertir les strings en UUID et préparer les données
+    task_data = task.model_dump()
+    
+    # Convertir les IDs string en UUID
+    import uuid
+    task_data['task_template_id'] = uuid.UUID(task_data['task_template_id'])
+    task_data['room_id'] = uuid.UUID(task_data['room_id'])
+    
+    # Gérer le cas où default_performer_id est vide ou null
+    if task_data.get('default_performer_id') and task_data['default_performer_id'].strip():
+        task_data['default_performer_id'] = uuid.UUID(task_data['default_performer_id'])
+    else:
+        task_data['default_performer_id'] = None
+    
+    # Mapper frequency_days vers frequency pour le modèle
+    if 'frequency_days' in task_data:
+        task_data['frequency'] = task_data.pop('frequency_days')
+    
+    # Supprimer times_per_day car il fait partie de frequency
+    task_data.pop('times_per_day', None)
+    
+    print(f"🔄 Création tâche assignée avec données: {task_data}")
+    
+    # Vérifier que les entités existent
+    task_template = db.query(TaskTemplate).filter(TaskTemplate.id == task_data['task_template_id']).first()
+    if not task_template:
+        raise HTTPException(status_code=404, detail="Modèle de tâche introuvable")
+    
+    from api.models.room import Room
+    room = db.query(Room).filter(Room.id == task_data['room_id']).first()
+    if not room:
+        raise HTTPException(status_code=404, detail="Pièce introuvable")
+    
+    # TODO: Vérifier que l'exécutant existe une fois qu'on aura une interface pour les créer
+    # from api.models.performer import Performer  
+    # performer = db.query(Performer).filter(Performer.id == task_data['default_performer_id']).first()
+    # if not performer:
+    #     raise HTTPException(status_code=404, detail="Exécutant introuvable")
+    
+    db_task = AssignedTask(**task_data)
     db.add(db_task)
     db.commit()
     db.refresh(db_task)
-    return db_task
+    return AssignedTaskResponse.from_orm_model(db_task)
 
 @assigned_router.get("", response_model=List[AssignedTaskResponse])
 async def get_assigned_tasks(
@@ -82,11 +121,13 @@ async def get_assigned_tasks(
     current_user: User = Depends(get_current_user)
 ):
     from sqlalchemy.orm import joinedload
-    return db.query(AssignedTask).options(
+    tasks = db.query(AssignedTask).options(
         joinedload(AssignedTask.task_template),
         joinedload(AssignedTask.room),
         joinedload(AssignedTask.default_performer)
     ).filter(AssignedTask.is_active == True).all()
+    
+    return [AssignedTaskResponse.from_orm_model(task) for task in tasks]
 
 @assigned_router.put("/{assigned_task_id}", response_model=AssignedTaskResponse, dependencies=[Depends(require_manager)])
 async def update_assigned_task(
@@ -102,7 +143,7 @@ async def update_assigned_task(
         setattr(task, k, v)
     db.commit()
     db.refresh(task)
-    return task
+    return AssignedTaskResponse.from_orm_model(task)
 
 @assigned_router.delete("/{assigned_task_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(require_manager)])
 async def delete_assigned_task(

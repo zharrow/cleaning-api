@@ -26,17 +26,6 @@ async def get_sessions(
 ):
     return db.query(CleaningSession).order_by(desc(CleaningSession.date)).limit(limit).all()
 
-@router.get("/{session_id}", response_model=CleaningSessionResponse)
-async def get_session(
-    session_id: uuid.UUID,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    session = db.query(CleaningSession).filter(CleaningSession.id == session_id).first()
-    if not session:
-        raise HTTPException(status_code=404, detail="Session non trouvée")
-    return session
-
 @router.get("/today", response_model=CleaningSessionResponse)
 async def get_today_session(
     db: Session = Depends(get_db),
@@ -48,6 +37,17 @@ async def get_today_session(
     if not session:
         raise HTTPException(status_code=404, detail="Aucune session trouvée pour aujourd'hui")
     
+    return session
+
+@router.get("/{session_id}", response_model=CleaningSessionResponse)
+async def get_session(
+    session_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    session = db.query(CleaningSession).filter(CleaningSession.id == session_id).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session non trouvée")
     return session
 
 @router.patch("/{session_id}/status")
@@ -76,6 +76,9 @@ async def create_today_session(
     Crée ou récupère la session du jour avec toutes les tâches assignées.
     
     - **force_recreate**: Si True, recrée la session même si elle existe
+    
+    Note: La session peut être créée vide s'il n'y a pas encore de tâches assignées.
+    Les tâches seront ajoutées dynamiquement lors de l'assignation.
     """
     today = date.today()
     
@@ -92,10 +95,11 @@ async def create_today_session(
         db.delete(existing_session)
         db.commit()
     
-    # Créer la nouvelle session
+    # Créer la nouvelle session (peut être vide au départ)
     session = CleaningSession(
         date=today,
-        status=SessionStatus.EN_COURS
+        status=SessionStatus.EN_COURS,
+        notes=None
     )
     db.add(session)
     db.flush()  # Pour obtenir l'ID de la session
@@ -105,29 +109,127 @@ async def create_today_session(
         AssignedTask.is_active == True
     ).all()
     
-    # Créer les logs pour les tâches du jour
+    # Créer les logs pour les tâches du jour (si il y en a)
     logs_created = 0
+    if assigned_tasks:
+        for task in assigned_tasks:
+            # Vérifier si cette tâche doit être faite aujourd'hui
+            if should_task_be_done_today(task, today):
+                try:
+                    log = CleaningLog(
+                        session_id=session.id,
+                        assigned_task_id=task.id,
+                        performed_by_id=task.default_performer_id,  # Peut être None
+                        recorded_by_id=current_user.id,
+                        status=LogStatus.REPORTE,  # Par défaut en attente
+                        performed_at=None
+                    )
+                    db.add(log)
+                    logs_created += 1
+                except Exception as e:
+                    # Log l'erreur mais continue la création de session
+                    print(f"Erreur lors de la création d'un log pour la tâche {task.id}: {e}")
+                    continue
+    
+    # Commit même si aucun log n'a été créé
+    db.commit()
+    db.refresh(session)
+    
+    # Message informatif dans les logs
+    if logs_created == 0:
+        print(f"Session créée avec succès pour {today} mais aucune tâche assignée trouvée.")
+        session.notes = "Session créée sans tâches assignées - en attente d'assignation"
+    else:
+        print(f"Session créée avec {logs_created} tâches pour {today}")
+    
+    # Ajouter le nombre de logs créés à la réponse (pour info)
+    session.logs_count = logs_created
+    
+    return session
+
+@router.post("/today/refresh", response_model=CleaningSessionResponse)
+async def refresh_today_session(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Actualise la session du jour avec les nouvelles tâches assignées.
+    Utile après avoir ajouté des tâches assignées.
+    """
+    today = date.today()
+    
+    # Récupérer la session du jour
+    session = db.query(CleaningSession).filter(CleaningSession.date == today).first()
+    
+    if not session:
+        raise HTTPException(status_code=404, detail="Aucune session trouvée pour aujourd'hui")
+    
+    # Récupérer toutes les tâches assignées actives
+    assigned_tasks = db.query(AssignedTask).filter(
+        AssignedTask.is_active == True
+    ).all()
+    
+    # Récupérer les logs existants pour éviter les doublons
+    existing_task_ids = set(
+        log.assigned_task_id for log in 
+        db.query(CleaningLog).filter(CleaningLog.session_id == session.id).all()
+    )
+    
+    # Ajouter les nouvelles tâches
+    new_logs_created = 0
     for task in assigned_tasks:
+        # Skip si déjà dans la session
+        if task.id in existing_task_ids:
+            continue
+            
         # Vérifier si cette tâche doit être faite aujourd'hui
         if should_task_be_done_today(task, today):
-            log = CleaningLog(
-                session_id=session.id,
-                assigned_task_id=task.id,
-                performed_by_id=task.default_performer_id,
-                recorded_by_id=current_user.id,
-                status=LogStatus.REPORTE,  # Par défaut en attente
-                performed_at=None
-            )
-            db.add(log)
-            logs_created += 1
+            try:
+                log = CleaningLog(
+                    session_id=session.id,
+                    assigned_task_id=task.id,
+                    performed_by_id=task.default_performer_id,
+                    recorded_by_id=current_user.id,
+                    status=LogStatus.REPORTE,
+                    performed_at=None
+                )
+                db.add(log)
+                new_logs_created += 1
+            except Exception as e:
+                print(f"Erreur lors de l'ajout d'un log pour la tâche {task.id}: {e}")
+                continue
     
     db.commit()
     db.refresh(session)
     
-    # Ajouter le nombre de logs créés à la réponse
-    session.logs_count = logs_created
-    
+    print(f"Session actualisée: {new_logs_created} nouvelles tâches ajoutées")
     return session
+
+@router.get("/{session_id}/logs")
+async def get_session_logs(
+    session_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Récupère tous les logs d'une session avec les données relationnelles.
+    """
+    # Vérifier que la session existe
+    session = db.query(CleaningSession).filter(
+        CleaningSession.id == session_id
+    ).first()
+    
+    if not session:
+        raise HTTPException(status_code=404, detail="Session non trouvée")
+    
+    # Récupérer tous les logs avec les relations
+    logs = db.query(CleaningLog).options(
+        joinedload(CleaningLog.assigned_task).joinedload(AssignedTask.room),
+        joinedload(CleaningLog.assigned_task).joinedload(AssignedTask.task_template),
+        joinedload(CleaningLog.performed_by)
+    ).filter(CleaningLog.session_id == session_id).all()
+    
+    return logs
 
 @router.get("/{session_id}/statistics")
 async def get_session_statistics(
