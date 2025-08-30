@@ -10,7 +10,7 @@ from api.core.security import get_current_user
 from api.models.user import User
 from api.models.session import CleaningSession, CleaningLog, SessionStatus, LogStatus
 from api.models.task import AssignedTask
-from api.schemas.session import CleaningSessionResponse
+from api.schemas.session import CleaningSessionResponse, CleaningLogResponse
 from api.services.task_scheduler import should_task_be_done_today, get_tasks_for_date
 from sqlalchemy import and_, func
 from sqlalchemy.orm import joinedload
@@ -338,4 +338,110 @@ async def get_session_statistics(
         "top_performers": top_performers,
         "has_photos": any(log.photo_urls for log in logs),
         "notes_count": len([l for l in logs if l.note])
+    }
+
+@router.post("/{session_id}/finalize")
+async def finalize_session(
+    session_id: uuid.UUID,
+    request: Dict[str, Any],  # Format: {"task_statuses": [{"task_id": "...", "status": {...}}]}
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Finalise une session en convertissant les statuts temporaires en CleaningLogs permanents
+    """
+    # Vérifier que la session existe
+    session = db.query(CleaningSession).filter(CleaningSession.id == session_id).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    if session.status == SessionStatus.COMPLETEE:
+        raise HTTPException(status_code=400, detail="Session already completed")
+    
+    task_statuses = request.get('task_statuses', [])
+    created_logs = []
+    
+    try:
+        # Mettre à jour les logs existants avec les statuts temporaires
+        for task_data in task_statuses:
+            task_id = task_data.get('task_id')
+            status_info = task_data.get('status', {})
+            
+            # Chercher le log existant pour cette tâche dans cette session
+            existing_log = db.query(CleaningLog).filter(
+                and_(
+                    CleaningLog.session_id == session_id,
+                    CleaningLog.assigned_task_id == task_id
+                )
+            ).first()
+            
+            if existing_log:
+                # Mettre à jour le log existant
+                status_mapping = {
+                    'done': LogStatus.FAIT,
+                    'partial': LogStatus.PARTIEL,
+                    'skipped': LogStatus.REPORTE,
+                    'blocked': LogStatus.IMPOSSIBLE,
+                    'todo': LogStatus.REPORTE,
+                    'in_progress': LogStatus.REPORTE
+                }
+                
+                existing_log.status = status_mapping.get(status_info.get('status'), LogStatus.REPORTE)
+                existing_log.note = status_info.get('notes')
+                
+                # Gérer les photos (conversion en JSON)
+                photos = status_info.get('photos', [])
+                if photos:
+                    existing_log.photo_urls = photos
+                
+                # Gérer l'exécutant
+                performer_name = status_info.get('performed_by')
+                if performer_name:
+                    # Trouver l'ID du performer par son nom
+                    from api.models.performer import Performer
+                    performer = db.query(Performer).filter(Performer.name == performer_name).first()
+                    if performer:
+                        existing_log.performed_by_id = performer.id
+                
+                # Gérer les timestamps
+                if status_info.get('completed_at'):
+                    existing_log.performed_at = datetime.fromisoformat(status_info['completed_at'].replace('Z', '+00:00'))
+                
+                created_logs.append(existing_log)
+        
+        # Sauvegarder toutes les modifications
+        db.commit()
+        
+        return {
+            "message": "Session finalized successfully",
+            "logs_updated": len(created_logs),
+            "session_id": str(session_id)
+        }
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error finalizing session: {str(e)}")
+
+@router.put("/{session_id}/complete")
+async def complete_session(
+    session_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Marque une session comme terminée/complétée"""
+    session = db.query(CleaningSession).filter(CleaningSession.id == session_id).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    # Mettre à jour le statut
+    session.status = SessionStatus.COMPLETEE
+    session.updated_at = datetime.utcnow()
+    
+    db.commit()
+    db.refresh(session)
+    
+    return {
+        "message": "Session completed successfully",
+        "session_id": str(session_id),
+        "status": session.status.value
     }
