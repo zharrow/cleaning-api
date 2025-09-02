@@ -20,6 +20,7 @@ from api.routers import (
     exports,        # Exports PDF/ZIP
     dashboard       # ✅ Corrigé: plus de double prefix
 )
+from api.routers import enterprise  # Import direct du routeur enterprise
 
 # Configuration du logging
 logging.basicConfig(
@@ -146,6 +147,13 @@ def create_app() -> FastAPI:
         dashboard.router, 
         prefix="/dashboard", 
         tags=["📈 Dashboard"]
+    )
+    
+    # ===== GESTION DES ENTREPRISES =====
+    app.include_router(
+        enterprise.router,
+        prefix="/enterprise",
+        tags=["🏢 Entreprises"]
     )
     
     # ===== ROUTES DE BASE =====

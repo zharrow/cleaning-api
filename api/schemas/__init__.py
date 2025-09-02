@@ -3,6 +3,7 @@ from api.schemas.performer import PerformerCreate, PerformerResponse
 from api.schemas.room import RoomCreate, RoomResponse
 from api.schemas.task import TaskTemplateCreate, TaskTemplateResponse, AssignedTaskCreate, AssignedTaskResponse
 from api.schemas.session import CleaningSessionResponse, CleaningLogCreate, CleaningLogResponse
+from api.schemas.enterprise import EnterpriseCreate, EnterpriseUpdate, EnterpriseResponse, EnterpriseBasicInfo
 
 __all__ = [
     "UserCreate", "UserResponse",
@@ -11,5 +12,6 @@ __all__ = [
     "TaskTemplateCreate", "TaskTemplateResponse",
     "AssignedTaskCreate", "AssignedTaskResponse",
     "CleaningSessionResponse",
-    "CleaningLogCreate", "CleaningLogResponse"
+    "CleaningLogCreate", "CleaningLogResponse",
+    "EnterpriseCreate", "EnterpriseUpdate", "EnterpriseResponse", "EnterpriseBasicInfo"
 ]

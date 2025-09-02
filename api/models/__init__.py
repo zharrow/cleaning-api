@@ -5,9 +5,10 @@ from api.models.room import Room
 from api.models.task import TaskTemplate, AssignedTask
 from api.models.session import CleaningSession, CleaningLog
 from api.models.export import Export
+from api.models.enterprise import Enterprise
 
 __all__ = [
     "Base", "User", "Performer", "Room", 
     "TaskTemplate", "AssignedTask", 
-    "CleaningSession", "CleaningLog", "Export"
+    "CleaningSession", "CleaningLog", "Export", "Enterprise"
 ]
