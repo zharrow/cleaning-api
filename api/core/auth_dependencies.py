@@ -21,7 +21,7 @@ class RequireRole:
             )
         
         # GERANTE et ADMIN ont accès à tout
-        if current_user.role in [UserRole.ADMIN, UserRole.GERANTE, UserRole.MANAGER]:
+        if current_user.role in [UserRole.ADMIN, UserRole.MANAGER]:
             return current_user
             
         # Sinon vérifier les rôles spécifiques
@@ -37,7 +37,7 @@ class RequireRole:
 def require_management_access(current_user: User = Depends(get_current_user)) -> User:
     """
     Vérifie que l'utilisateur peut gérer l'application
-    GERANTE, MANAGER et ADMIN autorisés
+    MANAGER et ADMIN autorisés
     """
     if not current_user.is_active:
         raise HTTPException(
@@ -48,7 +48,7 @@ def require_management_access(current_user: User = Depends(get_current_user)) ->
     if not current_user.can_manage:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Accès refusé. Seuls les gérants peuvent accéder à cette ressource."
+            detail="Accès refusé. Seuls les manageurs peuvent accéder à cette ressource."
         )
     return current_user
 
@@ -68,11 +68,10 @@ def require_admin_access(current_user: User = Depends(get_current_user)) -> User
 
 # La plupart des endpoints utiliseront ceci
 require_manager = require_management_access
-require_gerante = require_management_access
 
 # Pour les cas spéciaux
 require_admin = require_admin_access
 
 # Instances pour usage direct (sans PERFORMER qui n'existe pas)
-require_any_role = RequireRole([UserRole.ADMIN, UserRole.GERANTE, UserRole.MANAGER])
-require_active_user = RequireRole([UserRole.ADMIN, UserRole.GERANTE, UserRole.MANAGER])
+require_any_role = RequireRole([UserRole.ADMIN, UserRole.MANAGER])
+require_active_user = RequireRole([UserRole.ADMIN, UserRole.MANAGER])

@@ -6,7 +6,7 @@ from api.models.user import UserRole
 class UserCreate(BaseModel):
     firebase_uid: str
     full_name: str
-    role: UserRole = UserRole.GERANTE
+    role: UserRole = UserRole.MANAGER
 
 class UserUpdate(BaseModel):
     full_name: str | None = None

@@ -18,8 +18,11 @@ from api.routers import (
     sessions,       # Sessions de nettoyage
     logs,           # Logs de tâches
     exports,        # Exports PDF/ZIP
-    dashboard       # ✅ Corrigé: plus de double prefix
+    dashboard,      # ✅ Corrigé: plus de double prefix
+    uploads,        # Upload d'images local storage
+    static          # Servir les fichiers statiques
 )
+from api.routers import enterprise  # Import direct du routeur enterprise
 
 # Configuration du logging
 logging.basicConfig(
@@ -146,6 +149,27 @@ def create_app() -> FastAPI:
         dashboard.router, 
         prefix="/dashboard", 
         tags=["📈 Dashboard"]
+    )
+    
+    # ===== GESTION DES ENTREPRISES =====
+    app.include_router(
+        enterprise.router,
+        prefix="/enterprise",
+        tags=["🏢 Entreprises"]
+    )
+    
+    # ===== UPLOAD DE FICHIERS =====
+    app.include_router(
+        uploads.router,
+        prefix="/uploads",
+        tags=["📸 Uploads"]
+    )
+
+    # ===== FICHIERS STATIQUES =====
+    app.include_router(
+        static.router,
+        prefix="/uploads",
+        tags=["📁 Fichiers statiques"]
     )
     
     # ===== ROUTES DE BASE =====

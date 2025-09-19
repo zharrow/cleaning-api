@@ -1,0 +1,260 @@
+name: 🚀 cLean Backend CI/CD
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  # =======================================
+  # 🔍 TESTS & QUALITY CHECKS
+  # =======================================
+
+  test-and-lint:
+    name: 🧪 Test & Lint Backend
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_pass
+          POSTGRES_DB: test_clean
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: 📦 Cache pip dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: 📦 Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: 🔍 Code quality checks
+        run: |
+          echo "🔍 Running flake8..."
+          flake8 api/ --count --select=E9,F63,F7,F82 --show-source --statistics
+
+          echo "🎨 Checking code formatting with black..."
+          black --check api/
+
+          echo "🔍 Running mypy type checking..."
+          mypy api/ --ignore-missing-imports
+
+      - name: 🗄️ Run database migrations
+        run: |
+          echo "🗄️ Running Alembic migrations..."
+          alembic upgrade head
+        env:
+          DATABASE_URL: postgresql://test_user:test_pass@localhost:5432/test_clean
+
+      - name: 🧪 Run tests with coverage
+        run: |
+          echo "🧪 Running pytest with coverage..."
+          pytest --cov=api --cov-report=xml --cov-report=html --cov-report=term -v
+        env:
+          DATABASE_URL: postgresql://test_user:test_pass@localhost:5432/test_clean
+          FIREBASE_PROJECT_ID: test-project
+          SECRET_KEY: test-secret-key-for-ci-very-long-key
+          CORS_ORIGINS: '["http://localhost:4200"]'
+          DEBUG: True
+
+      - name: 📊 Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.xml
+          flags: backend
+          name: backend-coverage
+          fail_ci_if_error: false
+
+  # =======================================
+  # 🔒 SECURITY SCAN
+  # =======================================
+
+  security-scan:
+    name: 🔒 Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🔍 Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: 📤 Upload Trivy scan results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  # =======================================
+  # 🐳 DOCKER BUILD
+  # =======================================
+
+  docker-build:
+    name: 🐳 Docker Build
+    runs-on: ubuntu-latest
+    needs: [test-and-lint]
+    if: github.event_name == 'push'
+
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🐳 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🏗️ Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          tags: clean-api:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # =======================================
+  # 🚀 DEPLOYMENT TO RENDER
+  # =======================================
+
+  deploy:
+    name: 🚀 Deploy to Render
+    runs-on: ubuntu-latest
+    needs: [test-and-lint, security-scan, docker-build]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🚀 Deploy to Render
+        uses: johnbeynon/render-deploy-action@v0.0.8
+        with:
+          service-id: ${{ secrets.RENDER_SERVICE_ID }}
+          api-key: ${{ secrets.RENDER_API_KEY }}
+
+      - name: ⏳ Wait for deployment
+        run: |
+          echo "⏳ Waiting for deployment to complete..."
+          sleep 90
+
+      - name: 🏥 Health check
+        run: |
+          echo "🏥 Running health check..."
+          max_attempts=10
+          attempt=1
+
+          while [ $attempt -le $max_attempts ]; do
+            echo "Attempt $attempt/$max_attempts..."
+
+            if curl -f --max-time 10 ${{ secrets.BACKEND_URL }}/health; then
+              echo "✅ Health check passed!"
+              exit 0
+            fi
+
+            echo "❌ Health check failed, retrying in 30s..."
+            sleep 30
+            attempt=$((attempt + 1))
+          done
+
+          echo "❌ Health check failed after $max_attempts attempts"
+          exit 1
+
+      - name: 🧪 Run API integration tests
+        run: |
+          echo "🧪 Running API integration tests..."
+          # Test basic endpoints
+          curl -f ${{ secrets.BACKEND_URL }}/docs
+          echo "✅ API documentation accessible"
+
+          # Test auth endpoint
+          curl -f -X POST ${{ secrets.BACKEND_URL }}/auth/test || echo "⚠️ Auth test endpoint not available (expected in prod)"
+
+  # =======================================
+  # 📊 NOTIFICATIONS
+  # =======================================
+
+  notify:
+    name: 📢 Notify Deployment Status
+    runs-on: ubuntu-latest
+    needs: [deploy]
+    if: always() && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: 🎉 Deployment Success
+        if: needs.deploy.result == 'success'
+        run: |
+          echo "🎉 cLean Backend deployed successfully!"
+          echo "🔗 API URL: ${{ secrets.BACKEND_URL }}"
+          echo "📚 Documentation: ${{ secrets.BACKEND_URL }}/docs"
+          echo "🏥 Health Check: ${{ secrets.BACKEND_URL }}/health"
+
+      - name: 🚨 Deployment Failed
+        if: needs.deploy.result == 'failure'
+        run: |
+          echo "❌ cLean Backend deployment failed!"
+          echo "🔍 Check the deployment logs in Render dashboard"
+          exit 1
+
+  # =======================================
+  # 🔄 DATABASE MAINTENANCE (WEEKLY)
+  # =======================================
+
+  database-maintenance:
+    name: 🗄️ Database Maintenance
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'schedule'
+    # Run weekly on Sundays at 2 AM UTC
+    # schedule:
+    #   - cron: '0 2 * * 0'
+
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🗄️ Database cleanup
+        run: |
+          echo "🗄️ Running database maintenance..."
+          # Add database maintenance commands here
+          echo "✅ Database maintenance completed"

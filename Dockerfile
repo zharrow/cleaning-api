@@ -26,8 +26,8 @@ RUN mkdir -p /app/uploads /app/logs
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 
-# Exposer le port
-EXPOSE 8000
+# Exposer le port (Render utilise $PORT)
+EXPOSE $PORT
 
-# Commande par défaut
-CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Commande par défaut avec port dynamique pour Render
+CMD uvicorn api.main:app --host 0.0.0.0 --port ${PORT:-8000}

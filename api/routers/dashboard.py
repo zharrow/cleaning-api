@@ -143,7 +143,7 @@ async def get_dashboard_data(
         
         if assigned_task:
             most_postponed.append({
-                "task_name": assigned_task.task_template.title if hasattr(assigned_task.task_template, 'title') else assigned_task.task_template.name,
+                "task_name": assigned_task.task_template.name,
                 "room_name": assigned_task.room.name,
                 "postpone_count": task.postpone_count
             })
