@@ -20,10 +20,20 @@ if not firebase_admin._apps:
         settings.firebase_private_key and
         settings.firebase_client_email):
         # Mode production avec variables d'environnement
+
+        # Corriger le formatage de la clé privée
+        private_key = settings.firebase_private_key
+        if '\\n' in private_key:
+            private_key = private_key.replace('\\n', '\n')
+
+        # Vérifier que la clé a le bon format
+        if not private_key.startswith('-----BEGIN PRIVATE KEY-----'):
+            private_key = f"-----BEGIN PRIVATE KEY-----\n{private_key}\n-----END PRIVATE KEY-----\n"
+
         firebase_config = {
             "type": "service_account",
             "project_id": settings.firebase_project_id,
-            "private_key": settings.firebase_private_key.replace('\\n', '\n'),
+            "private_key": private_key,
             "client_email": settings.firebase_client_email,
             "token_uri": "https://oauth2.googleapis.com/token",
             "auth_uri": "https://accounts.google.com/o/oauth2/auth",
