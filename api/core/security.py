@@ -14,40 +14,42 @@ logger = logging.getLogger(__name__)
 # Initialisation Firebase
 if not firebase_admin._apps:
     import os
+    import base64
+    import json
+    import tempfile
 
-    # Prioriser les variables d'environnement (production)
-    if (settings.firebase_project_id and
-        settings.firebase_private_key and
-        settings.firebase_client_email):
-        # Mode production avec variables d'environnement
+    cred = None
 
-        # Corriger le formatage de la clé privée
-        private_key = settings.firebase_private_key
-        if '\\n' in private_key:
-            private_key = private_key.replace('\\n', '\n')
+    # Mode production : Firebase credentials encodés en base64
+    if settings.firebase_credentials_base64:
+        try:
+            # Décoder le base64 pour récupérer le JSON
+            credentials_json = base64.b64decode(settings.firebase_credentials_base64).decode('utf-8')
+            credentials_dict = json.loads(credentials_json)
 
-        # Vérifier que la clé a le bon format
-        if not private_key.startswith('-----BEGIN PRIVATE KEY-----'):
-            private_key = f"-----BEGIN PRIVATE KEY-----\n{private_key}\n-----END PRIVATE KEY-----\n"
+            # Créer un fichier temporaire avec les credentials
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as temp_file:
+                json.dump(credentials_dict, temp_file)
+                temp_file_path = temp_file.name
 
-        firebase_config = {
-            "type": "service_account",
-            "project_id": settings.firebase_project_id,
-            "private_key": private_key,
-            "client_email": settings.firebase_client_email,
-            "token_uri": "https://oauth2.googleapis.com/token",
-            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-            "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs"
-        }
-        cred = credentials.Certificate(firebase_config)
+            cred = credentials.Certificate(temp_file_path)
+
+            # Nettoyer le fichier temporaire après initialisation
+            os.unlink(temp_file_path)
+
+        except Exception as e:
+            logger.error(f"Erreur décodage Firebase credentials base64: {e}")
+            raise RuntimeError(f"Credentials Firebase base64 invalides: {e}")
+
+    # Mode développement : fichier JSON local
     elif settings.firebase_credentials_path and os.path.exists(settings.firebase_credentials_path):
-        # Mode développement avec fichier JSON
         cred = credentials.Certificate(settings.firebase_credentials_path)
+
     else:
         raise RuntimeError(
             "Configuration Firebase manquante. "
-            "Définissez FIREBASE_PROJECT_ID, FIREBASE_PRIVATE_KEY et FIREBASE_CLIENT_EMAIL "
-            "ou placez firebase-credentials.json dans le répertoire racine."
+            "En production: définissez FIREBASE_CREDENTIALS_BASE64 "
+            "En développement: placez firebase-credentials.json et définissez FIREBASE_CREDENTIALS_PATH"
         )
 
     firebase_admin.initialize_app(cred)

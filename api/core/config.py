@@ -15,9 +15,7 @@ class Settings(BaseSettings):
     
     # Firebase
     firebase_credentials_path: Optional[str] = None
-    firebase_project_id: Optional[str] = None
-    firebase_private_key: Optional[str] = None
-    firebase_client_email: Optional[str] = None
+    firebase_credentials_base64: Optional[str] = None
     
     # Upload
     uploads_dir: str = "uploads"
