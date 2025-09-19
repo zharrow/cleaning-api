@@ -14,7 +14,10 @@ class Settings(BaseSettings):
     redis_url: Optional[str] = None
     
     # Firebase
-    firebase_credentials_path: str = "firebase-credentials.json"
+    firebase_credentials_path: Optional[str] = None
+    firebase_project_id: Optional[str] = None
+    firebase_private_key: Optional[str] = None
+    firebase_client_email: Optional[str] = None
     
     # Upload
     uploads_dir: str = "uploads"

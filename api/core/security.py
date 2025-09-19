@@ -13,7 +13,22 @@ logger = logging.getLogger(__name__)
 
 # Initialisation Firebase
 if not firebase_admin._apps:
-    cred = credentials.Certificate(settings.firebase_credentials_path)
+    if settings.firebase_credentials_path:
+        # Mode développement avec fichier JSON
+        cred = credentials.Certificate(settings.firebase_credentials_path)
+    else:
+        # Mode production avec variables d'environnement
+        firebase_config = {
+            "type": "service_account",
+            "project_id": settings.firebase_project_id,
+            "private_key": settings.firebase_private_key.replace('\\n', '\n') if settings.firebase_private_key else None,
+            "client_email": settings.firebase_client_email,
+            "token_uri": "https://oauth2.googleapis.com/token",
+            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+            "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs"
+        }
+        cred = credentials.Certificate(firebase_config)
+
     firebase_admin.initialize_app(cred)
 
 security = HTTPBearer()
