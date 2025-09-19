@@ -6,6 +6,16 @@ from sqlalchemy import and_, func, desc
 import uuid
 
 from api.core.database import get_db
+
+def normalize_datetimes(dt1: datetime, dt2: datetime) -> tuple[datetime, datetime]:
+    """
+    Normalise deux datetime pour éviter les erreurs de timezone
+    """
+    if dt1.tzinfo is None and dt2.tzinfo is not None:
+        dt1 = dt1.replace(tzinfo=dt2.tzinfo)
+    elif dt1.tzinfo is not None and dt2.tzinfo is None:
+        dt2 = dt2.replace(tzinfo=dt1.tzinfo)
+    return dt1, dt2
 from api.core.security import get_current_user
 from api.models.user import User
 from api.models.session import CleaningSession, CleaningLog, SessionStatus, LogStatus
@@ -305,7 +315,8 @@ async def get_session_statistics(
             
             # Calculer la durée si disponible
             if log.performed_at and log.created_at:
-                duration = (log.performed_at - log.created_at).total_seconds() / 60
+                performed_at, created_at = normalize_datetimes(log.performed_at, log.created_at)
+                duration = (performed_at - created_at).total_seconds() / 60
                 performer_stats[log.performed_by_id]["total_duration"] += duration
     
     top_performers = sorted(
@@ -318,7 +329,8 @@ async def get_session_statistics(
     durations = []
     for log in logs:
         if log.performed_at and log.created_at and log.status == LogStatus.FAIT:
-            duration = (log.performed_at - log.created_at).total_seconds() / 60
+            performed_at, created_at = normalize_datetimes(log.performed_at, log.created_at)
+            duration = (performed_at - created_at).total_seconds() / 60
             durations.append(duration)
     
     average_duration = sum(durations) / len(durations) if durations else 0

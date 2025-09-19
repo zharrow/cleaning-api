@@ -1,6 +1,6 @@
-# 🧼 API Nettoyage Micro-Crèche
+# 🧼 cLean API
 
-API moderne et complète pour la gestion du nettoyage d'une micro-crèche avec authentification Firebase, exports PDF/ZIP, et interface intuitive.
+cLean API - API moderne et complète pour la gestion des tâches de nettoyage avec authentification Firebase, exports PDF, et fonctionnalités avancées.
 
 ## 🚀 Démarrage rapide
 
