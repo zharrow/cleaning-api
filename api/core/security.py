@@ -13,7 +13,33 @@ logger = logging.getLogger(__name__)
 
 # Initialisation Firebase
 if not firebase_admin._apps:
-    cred = credentials.Certificate(settings.firebase_credentials_path)
+    import os
+
+    # Prioriser les variables d'environnement (production)
+    if (settings.firebase_project_id and
+        settings.firebase_private_key and
+        settings.firebase_client_email):
+        # Mode production avec variables d'environnement
+        firebase_config = {
+            "type": "service_account",
+            "project_id": settings.firebase_project_id,
+            "private_key": settings.firebase_private_key.replace('\\n', '\n'),
+            "client_email": settings.firebase_client_email,
+            "token_uri": "https://oauth2.googleapis.com/token",
+            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+            "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs"
+        }
+        cred = credentials.Certificate(firebase_config)
+    elif settings.firebase_credentials_path and os.path.exists(settings.firebase_credentials_path):
+        # Mode développement avec fichier JSON
+        cred = credentials.Certificate(settings.firebase_credentials_path)
+    else:
+        raise RuntimeError(
+            "Configuration Firebase manquante. "
+            "Définissez FIREBASE_PROJECT_ID, FIREBASE_PRIVATE_KEY et FIREBASE_CLIENT_EMAIL "
+            "ou placez firebase-credentials.json dans le répertoire racine."
+        )
+
     firebase_admin.initialize_app(cred)
 
 security = HTTPBearer()
