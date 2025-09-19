@@ -39,12 +39,9 @@ services:
       - key: RATE_LIMIT_WINDOW
         value: 3600
 
-  # PostgreSQL Database
-  - type: pserv
-    name: clean-postgres
-    runtime: postgresql
+databases:
+  - name: clean-postgres
+    databaseName: clean_db
+    user: clean_user
     plan: free
     region: oregon
-    databases:
-      - name: clean_db
-        user: clean_user
