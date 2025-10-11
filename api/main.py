@@ -23,6 +23,7 @@ from api.routers import (
     static          # Servir les fichiers statiques
 )
 from api.routers import enterprise  # Import direct du routeur enterprise
+from api.routers.haccp import router as haccp_router  # HACCP module
 
 # Configuration du logging
 logging.basicConfig(
@@ -157,7 +158,14 @@ def create_app() -> FastAPI:
         prefix="/enterprise",
         tags=["🏢 Entreprises"]
     )
-    
+
+    # ===== MODULE HACCP =====
+    app.include_router(
+        haccp_router,
+        prefix="/haccp",
+        tags=["🍽️ HACCP"]
+    )
+
     # ===== UPLOAD DE FICHIERS =====
     app.include_router(
         uploads.router,
