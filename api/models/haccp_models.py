@@ -90,7 +90,7 @@ class Child(TimestampedModel):
     is_active = Column(Boolean, default=True, nullable=False)
 
     # Relationships
-    enterprise = relationship("Enterprise", backref="children")
+    enterprise = relationship("Enterprise", back_populates="children")
 
     def __repr__(self):
         return f"<Child(id='{self.id}', name='{self.first_name} {self.last_name}', section='{self.section.value}')>"
@@ -119,7 +119,7 @@ class Supplier(TimestampedModel):
     validation_date = Column(Date, nullable=True, comment="Last verification date")
 
     # Relationships
-    enterprise = relationship("Enterprise", backref="suppliers")
+    enterprise = relationship("Enterprise", back_populates="suppliers")
 
     def __repr__(self):
         return f"<Supplier(id='{self.id}', name='{self.name}', haccp='{self.haccp_certified}')>"
@@ -153,7 +153,7 @@ class Product(TimestampedModel):
     expiry_date = Column(Date, nullable=True, comment="Expiry date")
 
     # Relationships
-    enterprise = relationship("Enterprise", backref="products")
+    enterprise = relationship("Enterprise", back_populates="products")
     supplier = relationship("Supplier", backref="products")
 
     def __repr__(self):
@@ -215,7 +215,7 @@ class Meal(TimestampedModel):
 
     responsible_id = Column(
         UUID(as_uuid=True),
-        ForeignKey("users.id"),
+        ForeignKey("user.id"),
         nullable=True,
         comment="User who validated the meal"
     )
@@ -225,10 +225,10 @@ class Meal(TimestampedModel):
     description = Column(Text, nullable=True, comment="Meal details (menu, ingredients)")
 
     # Relationships
-    enterprise = relationship("Enterprise", backref="meals")
+    enterprise = relationship("Enterprise", back_populates="meals")
     supplier = relationship("Supplier", backref="meals")
     batch = relationship("Batch", backref="meals")
-    responsible = relationship("User", backref="meals_validated", foreign_keys=[responsible_id])
+    responsible = relationship("User", foreign_keys=[responsible_id], back_populates="meals")
 
     def __repr__(self):
         return f"<Meal(id='{self.id}', date='{self.date}', type='{self.meal_type.value}')>"
@@ -250,7 +250,7 @@ class Temperature(BaseModel):
 
     responsible_id = Column(
         UUID(as_uuid=True),
-        ForeignKey("users.id"),
+        ForeignKey("user.id"),
         nullable=True,
         comment="User who recorded temperature"
     )
@@ -263,7 +263,7 @@ class Temperature(BaseModel):
 
     # Relationships
     meal = relationship("Meal", backref="temperatures")
-    responsible = relationship("User", backref="temperatures_recorded", foreign_keys=[responsible_id])
+    responsible = relationship("User", foreign_keys=[responsible_id], back_populates="temperatures")
 
     def __repr__(self):
         return f"<Temperature(id='{self.id}', checkpoint='{self.checkpoint.value}', temp='{self.temperature}°C')>"
@@ -291,7 +291,7 @@ class Equipment(TimestampedModel):
     observations = Column(Text, nullable=True, comment="Maintenance details")
 
     # Relationships
-    enterprise = relationship("Enterprise", backref="equipment")
+    enterprise = relationship("Enterprise", back_populates="equipment")
 
     def __repr__(self):
         return f"<Equipment(id='{self.id}', name='{self.name}', type='{self.type}')>"
@@ -314,7 +314,7 @@ class CleaningHaccp(BaseModel):
 
     responsible_id = Column(
         UUID(as_uuid=True),
-        ForeignKey("users.id"),
+        ForeignKey("user.id"),
         nullable=True,
         comment="User who performed cleaning"
     )
@@ -326,8 +326,8 @@ class CleaningHaccp(BaseModel):
     observations = Column(Text, nullable=True)
 
     # Relationships
-    enterprise = relationship("Enterprise", backref="haccp_cleanings")
-    responsible = relationship("User", backref="haccp_cleanings_performed", foreign_keys=[responsible_id])
+    enterprise = relationship("Enterprise", back_populates="cleaning_haccp")
+    responsible = relationship("User", foreign_keys=[responsible_id], back_populates="cleaning_haccp_records")
 
     def __repr__(self):
         return f"<CleaningHaccp(id='{self.id}', zone='{self.zone}', date='{self.cleaning_date}')>"
@@ -349,7 +349,7 @@ class NonCompliance(TimestampedModel):
 
     responsible_id = Column(
         UUID(as_uuid=True),
-        ForeignKey("users.id"),
+        ForeignKey("user.id"),
         nullable=True,
         comment="User responsible for incident"
     )
@@ -361,8 +361,8 @@ class NonCompliance(TimestampedModel):
     status = Column(Enum(NonComplianceStatus), default=NonComplianceStatus.OPEN, nullable=False)
 
     # Relationships
-    enterprise = relationship("Enterprise", backref="non_compliances")
-    responsible = relationship("User", backref="non_compliances_reported", foreign_keys=[responsible_id])
+    enterprise = relationship("Enterprise", back_populates="non_compliances")
+    responsible = relationship("User", foreign_keys=[responsible_id], back_populates="non_compliances")
 
     def __repr__(self):
         return f"<NonCompliance(id='{self.id}', type='{self.type.value}', status='{self.status.value}')>"
@@ -384,7 +384,7 @@ class Document(BaseModel):
 
     responsible_id = Column(
         UUID(as_uuid=True),
-        ForeignKey("users.id"),
+        ForeignKey("user.id"),
         nullable=True,
         comment="User who uploaded document"
     )
@@ -396,8 +396,8 @@ class Document(BaseModel):
     retention_period = Column(String(50), nullable=True, comment="Retention period (e.g. '5 years')")
 
     # Relationships
-    enterprise = relationship("Enterprise", backref="documents")
-    responsible = relationship("User", backref="documents_uploaded", foreign_keys=[responsible_id])
+    enterprise = relationship("Enterprise", back_populates="documents")
+    responsible = relationship("User", foreign_keys=[responsible_id], back_populates="documents")
 
     def __repr__(self):
         return f"<Document(id='{self.id}', name='{self.name}', category='{self.category.value}')>"

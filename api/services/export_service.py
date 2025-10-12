@@ -4,7 +4,8 @@ from pathlib import Path
 from sqlalchemy.orm import Session
 from api.core.database import SessionLocal
 from api.core.config import settings
-from api.models.session import CleaningSession, CleaningLog
+from api.models.session import CleaningSession
+from api.models.cleaning_log import CleaningLog
 from api.models.export import Export
 
 def generate_pdf_report_task(session_id: uuid.UUID):

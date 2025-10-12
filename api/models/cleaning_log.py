@@ -1,37 +1,32 @@
-from sqlalchemy import Column, String, DateTime, Integer, Text, ForeignKey
+from sqlalchemy import Column, Text, ForeignKey, Enum, JSON, DateTime
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
-from api.models.base import TimestampedModel
+from api.models.base import BaseModel
+from api.models.session import LogStatus
 
-class CleaningLog(TimestampedModel):
+class CleaningLog(BaseModel):
     """
-    Modèle pour les logs de nettoyage - enregistrements permanents des tâches réalisées
-    Contrairement aux statuts temporaires, ces logs persistent après la fin de session
+    Permanent record of completed cleaning tasks
     """
     __tablename__ = "cleaning_logs"
-    
-    # Références
-    session_id = Column(UUID(as_uuid=True), ForeignKey("cleaning_sessions.id"), nullable=False)
-    assigned_task_id = Column(UUID(as_uuid=True), ForeignKey("assigned_tasks.id"), nullable=False)
-    task_template_id = Column(UUID(as_uuid=True), ForeignKey("task_templates.id"), nullable=False)
-    room_id = Column(UUID(as_uuid=True), ForeignKey("rooms.id"), nullable=False)
-    
-    # Statut final de la tâche
-    status = Column(String(50), nullable=False)  # 'done', 'partial', 'skipped', 'blocked'
-    performed_by = Column(String(255), nullable=True)  # Nom de l'exécutant
-    
-    # Données d'exécution
-    started_at = Column(DateTime, nullable=True)
-    completed_at = Column(DateTime, nullable=True)
-    duration_minutes = Column(Integer, nullable=True)
-    
-    # Détails supplémentaires
-    notes = Column(Text, nullable=True)
-    photos = Column(Text, nullable=True)  # JSON array des URLs des photos
-    quality_score = Column(Integer, nullable=True)  # Note qualité de 1 à 5
-    
-    # Relations
-    session = relationship("CleaningSession", backref="cleaning_logs")
-    assigned_task = relationship("AssignedTask", backref="cleaning_logs")
-    task_template = relationship("TaskTemplate", backref="cleaning_logs")
-    room = relationship("Room", backref="cleaning_logs")
+
+    # Foreign keys
+    session_id = Column(UUID(as_uuid=True), ForeignKey("cleaning_sessions.id"), nullable=True, index=True)
+    assigned_task_id = Column(UUID(as_uuid=True), ForeignKey("assigned_tasks.id"), nullable=True)
+
+    # Who performed the task and who recorded it (both reference User table now)
+    performed_by_id = Column(UUID(as_uuid=True), ForeignKey("user.id"), nullable=True, index=True)
+    recorded_by_id = Column(UUID(as_uuid=True), ForeignKey("user.id"), nullable=True)
+
+    status = Column(Enum(LogStatus), default=LogStatus.REPORTE, nullable=False)
+    note = Column(Text, nullable=True)
+    photo_urls = Column(JSON, default=list, nullable=True)  # Liste des URLs de photos
+
+    # Timestamp for when task was actually performed
+    performed_at = Column(DateTime, nullable=True)
+
+    # Relationships
+    session = relationship("CleaningSession", back_populates="logs")
+    assigned_task = relationship("AssignedTask", back_populates="cleaning_logs")
+    performed_by = relationship("User", foreign_keys=[performed_by_id], back_populates="performed_logs")
+    recorded_by = relationship("User", foreign_keys=[recorded_by_id], back_populates="recorded_logs")

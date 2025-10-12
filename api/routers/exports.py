@@ -5,7 +5,8 @@ from sqlalchemy.orm import Session
 from api.core.database import get_db
 from api.core.security import get_current_user
 from api.models.user import User
-from api.models.session import CleaningSession, CleaningLog
+from api.models.session import CleaningSession
+from api.models.cleaning_log import CleaningLog
 from api.models.export import Export
 from api.services.export_service import generate_pdf_report_task, generate_zip_photos_task
 import os

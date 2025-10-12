@@ -18,7 +18,8 @@ def normalize_datetimes(dt1: datetime, dt2: datetime) -> tuple[datetime, datetim
     return dt1, dt2
 from api.core.security import get_current_user
 from api.models.user import User
-from api.models.session import CleaningSession, CleaningLog, SessionStatus, LogStatus
+from api.models.session import CleaningSession, SessionStatus, LogStatus
+from api.models.cleaning_log import CleaningLog
 from api.models.task import AssignedTask
 from api.schemas.session import CleaningSessionResponse, CleaningLogResponse
 from api.services.task_scheduler import should_task_be_done_today, get_tasks_for_date

@@ -7,7 +7,7 @@ import logging
 
 from api.core.config import settings
 from api.core.database import get_db
-from api.models.user import User
+from api.models.user import User, Admin, Developer
 
 logger = logging.getLogger(__name__)
 
@@ -60,15 +60,18 @@ async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db)
 ) -> User:
-    """Dependency pour obtenir l'utilisateur actuel authentifié"""
+    """
+    LEGACY: Dependency pour obtenir l'utilisateur actuel authentifié
+    NOTE: This is for backward compatibility only. Use get_current_admin for new code.
+    """
     try:
         token = credentials.credentials
         logger.info(f"Token reçu: {token[:50]}...")
-        
+
         decoded_token = firebase_auth.verify_id_token(token)
         firebase_uid = decoded_token['uid']
         logger.info(f"Firebase UID décodé: {firebase_uid}")
-        
+
         user = db.query(User).filter(User.firebase_uid == firebase_uid).first()
         if not user:
             logger.warning(f"Utilisateur non trouvé pour firebase_uid: {firebase_uid}")
@@ -76,11 +79,88 @@ async def get_current_user(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Utilisateur non trouvé"
             )
-        
+
         logger.info(f"Utilisateur trouvé: {user.full_name} (ID: {user.id})")
         return user
     except Exception as e:
         logger.error(f"Erreur d'authentification: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token invalide"
+        )
+
+
+async def get_current_admin(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db)
+) -> Admin:
+    """
+    Multi-tier authentication: Get current Admin (daycare manager) from Firebase token
+    """
+    try:
+        token = credentials.credentials
+        logger.info(f"Admin token received: {token[:50]}...")
+
+        decoded_token = firebase_auth.verify_id_token(token)
+        firebase_uid = decoded_token['uid']
+        logger.info(f"Admin Firebase UID: {firebase_uid}")
+
+        admin = db.query(Admin).filter(Admin.firebase_uid == firebase_uid).first()
+        if not admin:
+            logger.warning(f"Admin not found for firebase_uid: {firebase_uid}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Admin non trouvé"
+            )
+
+        if not admin.is_active:
+            logger.warning(f"Inactive admin attempted access: {admin.id}")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Compte administrateur désactivé"
+            )
+
+        logger.info(f"Admin authenticated: {admin.first_name} {admin.last_name} (ID: {admin.id})")
+        return admin
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Admin authentication error: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token invalide"
+        )
+
+
+async def get_current_developer(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db)
+) -> Developer:
+    """
+    Multi-tier authentication: Get current Developer (super admin) from Firebase token
+    """
+    try:
+        token = credentials.credentials
+        logger.info(f"Developer token received: {token[:50]}...")
+
+        decoded_token = firebase_auth.verify_id_token(token)
+        firebase_uid = decoded_token['uid']
+        logger.info(f"Developer Firebase UID: {firebase_uid}")
+
+        developer = db.query(Developer).filter(Developer.firebase_uid == firebase_uid).first()
+        if not developer:
+            logger.warning(f"Developer not found for firebase_uid: {firebase_uid}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Developer non trouvé"
+            )
+
+        logger.info(f"Developer authenticated: {developer.email} (ID: {developer.id})")
+        return developer
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Developer authentication error: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token invalide"

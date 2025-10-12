@@ -4,7 +4,8 @@ from datetime import date, datetime, timedelta
 from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
 from api.models.task import AssignedTask
-from api.models.session import CleaningSession, CleaningLog, LogStatus
+from api.models.session import CleaningSession, LogStatus
+from api.models.cleaning_log import CleaningLog
 import logging
 
 logger = logging.getLogger(__name__)

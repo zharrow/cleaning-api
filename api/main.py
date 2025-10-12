@@ -12,7 +12,7 @@ from api.models import Base
 # Import des routers
 from api.routers import (
     auth,           # ✅ Corrigé: plus de double prefix
-    performers,     # Gestion des employés
+    performers,     # Gestion des employés (LEGACY - à remplacer)
     rooms,          # Gestion des pièces
     tasks,          # Gestion des tâches
     sessions,       # Sessions de nettoyage
@@ -24,6 +24,10 @@ from api.routers import (
 )
 from api.routers import enterprise  # Import direct du routeur enterprise
 from api.routers.haccp import router as haccp_router  # HACCP module
+from api.routers.communication import router as communication_router  # Communication module
+
+# New 3-tier user system routers
+from api.routers import developers, admins, employees
 
 # Configuration du logging
 logging.basicConfig(
@@ -98,11 +102,27 @@ def create_app() -> FastAPI:
         tags=["🔐 Authentification"]
     )
     
-    # ===== GESTION DES EMPLOYÉS =====
+    # ===== NEW 3-TIER USER SYSTEM =====
     app.include_router(
-        performers.router, 
-        prefix="/performers", 
-        tags=["👥 Employés"]
+        developers.router,
+        tags=["👨‍💻 Developers"]
+    )
+
+    app.include_router(
+        admins.router,
+        tags=["👔 Admins"]
+    )
+
+    app.include_router(
+        employees.router,
+        tags=["👥 Employees"]
+    )
+
+    # ===== GESTION DES EMPLOYÉS (LEGACY) =====
+    app.include_router(
+        performers.router,
+        prefix="/performers",
+        tags=["👥 Employés (Legacy)"]
     )
     
     # ===== GESTION DES RESSOURCES =====
@@ -164,6 +184,13 @@ def create_app() -> FastAPI:
         haccp_router,
         prefix="/haccp",
         tags=["🍽️ HACCP"]
+    )
+
+    # ===== MODULE COMMUNICATION =====
+    app.include_router(
+        communication_router,
+        prefix="/communication",
+        tags=["💬 Communication"]
     )
 
     # ===== UPLOAD DE FICHIERS =====

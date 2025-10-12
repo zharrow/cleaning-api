@@ -9,7 +9,8 @@ from typing import Dict, Any, List
 from api.core.database import get_db
 from api.core.security import get_current_user
 from api.models.user import User
-from api.models.session import CleaningSession, CleaningLog, SessionStatus, LogStatus
+from api.models.session import CleaningSession, SessionStatus, LogStatus
+from api.models.cleaning_log import CleaningLog
 from api.models.task import AssignedTask
 from api.models.performer import Performer
 

@@ -8,7 +8,8 @@ from api.core.database import get_db
 from api.core.security import get_current_user
 from api.core.config import settings
 from api.models.user import User
-from api.models.session import CleaningLog, CleaningSession, LogStatus, SessionStatus
+from api.models.session import CleaningSession, LogStatus, SessionStatus
+from api.models.cleaning_log import CleaningLog
 from api.schemas.session import CleaningLogCreate, CleaningLogResponse
 from api.utils.file_utils import save_uploaded_file
 from api.models import Base

@@ -31,8 +31,8 @@ services:
         apt-get update && apt-get install -y libpq-dev gcc curl &&
         echo 'Installation de TOUTES les dépendances Python...' &&
         pip install --no-cache-dir -r requirements.txt &&
-        echo 'Initialisation de la base de données...' &&
-        python init_db.py &&
+        echo 'Migration de la base de données avec Alembic...' &&
+        alembic upgrade head &&
         echo 'Démarrage du serveur API...' &&
         uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
       "
