@@ -10,6 +10,7 @@ from typing import List
 import hashlib
 
 from api.core.database import get_db
+from api.core.security import get_current_user
 from api.models.user import User, Admin, UserRooms
 from api.models.enterprise import Enterprise
 from api.models.room import Room
@@ -29,23 +30,15 @@ def hash_pin(pin: str) -> str:
 @router.post("", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def create_employee(
     user: UserCreate,
-    admin_id: str,
+    current_user: Admin = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
     Create a new User (employee) account
     NOTE: Should be called by Admin only
     """
-    # Verify admin exists
-    admin = db.query(Admin).filter(Admin.id == admin_id).first()
-    if not admin:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Admin not found"
-        )
-
     # Get admin's enterprise
-    enterprise = db.query(Enterprise).filter(Enterprise.admin_id == admin_id).first()
+    enterprise = db.query(Enterprise).filter(Enterprise.admin_id == current_user.id).first()
     if not enterprise:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -71,7 +64,7 @@ async def create_employee(
         last_name=user.last_name,
         pin_code=hashed_pin,
         enterprise_id=enterprise.id,
-        created_by_id=admin_id
+        created_by_id=current_user.id
     )
     db.add(db_user)
     db.commit()
@@ -82,7 +75,7 @@ async def create_employee(
 
 @router.get("", response_model=List[UserResponse])
 async def list_employees(
-    admin_id: str,
+    current_user: Admin = Depends(get_current_user),
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db)
@@ -91,7 +84,7 @@ async def list_employees(
     List all employees for an admin's enterprise
     """
     # Get admin's enterprise
-    enterprise = db.query(Enterprise).filter(Enterprise.admin_id == admin_id).first()
+    enterprise = db.query(Enterprise).filter(Enterprise.admin_id == current_user.id).first()
     if not enterprise:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -109,14 +102,14 @@ async def list_employees(
 @router.get("/{user_id}", response_model=UserResponse)
 async def get_employee(
     user_id: str,
-    admin_id: str,
+    current_user: Admin = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
     Get employee by ID
     """
     # Get admin's enterprise
-    enterprise = db.query(Enterprise).filter(Enterprise.admin_id == admin_id).first()
+    enterprise = db.query(Enterprise).filter(Enterprise.admin_id == current_user.id).first()
     if not enterprise:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -141,15 +134,15 @@ async def get_employee(
 @router.patch("/{user_id}", response_model=UserResponse)
 async def update_employee(
     user_id: str,
-    admin_id: str,
     user_update: UserUpdate,
+    current_user: Admin = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
     Update employee information
     """
     # Get admin's enterprise
-    enterprise = db.query(Enterprise).filter(Enterprise.admin_id == admin_id).first()
+    enterprise = db.query(Enterprise).filter(Enterprise.admin_id == current_user.id).first()
     if not enterprise:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -198,7 +191,7 @@ async def update_employee(
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_employee(
     user_id: str,
-    admin_id: str,
+    current_user: Admin = Depends(get_current_user),
     hard_delete: bool = False,
     db: Session = Depends(get_db)
 ):
@@ -208,7 +201,7 @@ async def delete_employee(
     - Hard delete: permanently removes from database (fails if user has task/log references)
     """
     # Get admin's enterprise
-    enterprise = db.query(Enterprise).filter(Enterprise.admin_id == admin_id).first()
+    enterprise = db.query(Enterprise).filter(Enterprise.admin_id == current_user.id).first()
     if not enterprise:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -287,15 +280,15 @@ async def login_employee(
 @router.post("/{user_id}/rooms", response_model=UserRoomResponse, status_code=status.HTTP_201_CREATED)
 async def grant_room_access(
     user_id: str,
-    admin_id: str,
     room_access: UserRoomCreate,
+    current_user: Admin = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
     Grant room access to an employee
     """
     # Get admin's enterprise
-    enterprise = db.query(Enterprise).filter(Enterprise.admin_id == admin_id).first()
+    enterprise = db.query(Enterprise).filter(Enterprise.admin_id == current_user.id).first()
     if not enterprise:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -347,14 +340,14 @@ async def grant_room_access(
 @router.get("/{user_id}/rooms", response_model=List[UserRoomResponse])
 async def list_employee_rooms(
     user_id: str,
-    admin_id: str,
+    current_user: Admin = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
     List all rooms accessible by an employee
     """
     # Get admin's enterprise
-    enterprise = db.query(Enterprise).filter(Enterprise.admin_id == admin_id).first()
+    enterprise = db.query(Enterprise).filter(Enterprise.admin_id == current_user.id).first()
     if not enterprise:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -381,14 +374,14 @@ async def list_employee_rooms(
 async def revoke_room_access(
     user_id: str,
     room_id: str,
-    admin_id: str,
+    current_user: Admin = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
     Revoke room access from an employee
     """
     # Get admin's enterprise
-    enterprise = db.query(Enterprise).filter(Enterprise.admin_id == admin_id).first()
+    enterprise = db.query(Enterprise).filter(Enterprise.admin_id == current_user.id).first()
     if not enterprise:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

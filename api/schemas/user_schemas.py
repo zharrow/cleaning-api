@@ -54,6 +54,7 @@ class AdminResponse(BaseModel):
     firebase_uid: str
     first_name: str
     last_name: str
+    full_name: str  # Computed property
     is_active: bool
     created_by_id: uuid.UUID
     created_at: datetime
@@ -121,6 +122,7 @@ class UserResponse(BaseModel):
     email: Optional[str]
     first_name: str
     last_name: str
+    full_name: str  # Computed property
     is_active: bool
     enterprise_id: uuid.UUID
     created_by_id: uuid.UUID

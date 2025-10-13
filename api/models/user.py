@@ -47,6 +47,11 @@ class Admin(TimestampedModel):
     enterprise = relationship("Enterprise", back_populates="admin", uselist=False)
     users = relationship("User", back_populates="admin", cascade="all, delete-orphan")
 
+    @property
+    def full_name(self) -> str:
+        """Computed property: full name from first_name + last_name"""
+        return f"{self.first_name} {self.last_name}"
+
 # ==================== USER (Employee) ====================
 class User(TimestampedModel):
     """Employee/staff member with PIN authentication for tablet access"""
@@ -78,6 +83,11 @@ class User(TimestampedModel):
     cleaning_haccp_records = relationship("CleaningHaccp", foreign_keys="[CleaningHaccp.responsible_id]", back_populates="responsible")
     non_compliances = relationship("NonCompliance", foreign_keys="[NonCompliance.responsible_id]", back_populates="responsible")
     documents = relationship("Document", foreign_keys="[Document.responsible_id]", back_populates="responsible")
+
+    @property
+    def full_name(self) -> str:
+        """Computed property: full name from first_name + last_name"""
+        return f"{self.first_name} {self.last_name}"
 
 # ==================== USER_ROOMS (Associative) ====================
 class UserRooms(TimestampedModel):
