@@ -7,7 +7,7 @@ import logging
 
 from api.core.database import get_db
 from api.core.security import get_current_user
-from api.models.user import User
+from api.models.user import Admin
 from api.models.enterprise import Enterprise
 from api.schemas.enterprise import (
     EnterpriseCreate, 
@@ -22,14 +22,14 @@ router = APIRouter()
 
 @router.get("/me", response_model=EnterpriseResponse)
 async def get_my_enterprise(
-    current_user: User = Depends(get_current_user),
+    current_user: Admin = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    Récupérer les informations de l'entreprise de l'utilisateur connecté
+    Récupérer les informations de l'entreprise de l'admin connecté
     """
     enterprise = db.query(Enterprise).filter(
-        Enterprise.user_id == current_user.id
+        Enterprise.admin_id == current_user.id
     ).first()
     
     if not enterprise:
@@ -42,14 +42,14 @@ async def get_my_enterprise(
 
 @router.get("/me/basic", response_model=EnterpriseBasicInfo)
 async def get_my_enterprise_basic_info(
-    current_user: User = Depends(get_current_user),
+    current_user: Admin = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
     Récupérer les informations de base de l'entreprise (nom, logo) pour le header
     """
     enterprise = db.query(Enterprise).filter(
-        Enterprise.user_id == current_user.id
+        Enterprise.admin_id == current_user.id
     ).first()
     
     if not enterprise:
@@ -66,27 +66,27 @@ async def get_my_enterprise_basic_info(
 @router.post("/", response_model=EnterpriseResponse, status_code=status.HTTP_201_CREATED)
 async def create_enterprise(
     enterprise_data: EnterpriseCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: Admin = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    Créer une nouvelle entreprise pour l'utilisateur connecté
+    Créer une nouvelle entreprise pour l'admin connecté
     """
-    # Vérifier qu'une entreprise n'existe pas déjà pour cet utilisateur
+    # Vérifier qu'une entreprise n'existe pas déjà pour cet admin
     existing_enterprise = db.query(Enterprise).filter(
-        Enterprise.user_id == current_user.id
+        Enterprise.admin_id == current_user.id
     ).first()
-    
+
     if existing_enterprise:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Une entreprise est déjà associée à cet utilisateur"
+            detail="Une entreprise est déjà associée à cet administrateur"
         )
-    
+
     try:
         # Créer l'entreprise
         enterprise = Enterprise(
-            user_id=current_user.id,
+            admin_id=current_user.id,
             name=enterprise_data.name,
             logo_url=enterprise_data.logo_url,
             legal_form=enterprise_data.legal_form,
@@ -118,14 +118,14 @@ async def create_enterprise(
 @router.put("/me", response_model=EnterpriseResponse)
 async def update_my_enterprise(
     enterprise_data: EnterpriseUpdate,
-    current_user: User = Depends(get_current_user),
+    current_user: Admin = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    Mettre à jour les informations de l'entreprise de l'utilisateur connecté
+    Mettre à jour les informations de l'entreprise de l'admin connecté
     """
     enterprise = db.query(Enterprise).filter(
-        Enterprise.user_id == current_user.id
+        Enterprise.admin_id == current_user.id
     ).first()
     
     if not enterprise:
@@ -158,15 +158,15 @@ async def update_my_enterprise(
 
 @router.get("/exists")
 async def check_enterprise_exists(
-    current_user: User = Depends(get_current_user),
+    current_user: Admin = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    Vérifier si l'utilisateur connecté a déjà une entreprise
+    Vérifier si l'admin connecté a déjà une entreprise
     Utilisé pour les guards frontend
     """
     enterprise = db.query(Enterprise).filter(
-        Enterprise.user_id == current_user.id
+        Enterprise.admin_id == current_user.id
     ).first()
     
     return {
@@ -176,15 +176,15 @@ async def check_enterprise_exists(
 
 @router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_my_enterprise(
-    current_user: User = Depends(get_current_user),
+    current_user: Admin = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    Supprimer l'entreprise de l'utilisateur connecté
+    Supprimer l'entreprise de l'admin connecté
     ⚠️ Attention: cette action est irréversible
     """
     enterprise = db.query(Enterprise).filter(
-        Enterprise.user_id == current_user.id
+        Enterprise.admin_id == current_user.id
     ).first()
     
     if not enterprise:

@@ -15,55 +15,55 @@ from enum import Enum
 
 class Section(str, Enum):
     """Child care sections/groups"""
-    BABIES = "Babies"
-    TODDLERS = "Toddlers"
-    PRESCHOOLERS = "Preschoolers"
+    BABIES = "BABIES"
+    TODDLERS = "TODDLERS"
+    PRESCHOOLERS = "PRESCHOOLERS"
 
 
 class MealType(str, Enum):
     """Types of meals"""
-    BREAKFAST = "Breakfast"
-    LUNCH = "Lunch"
-    SNACK = "Snack"
+    BREAKFAST = "BREAKFAST"
+    LUNCH = "LUNCH"
+    SNACK = "SNACK"
 
 
 class Checkpoint(str, Enum):
     """Temperature control checkpoints"""
-    RECEPTION = "Reception"
-    HOLDING = "Holding"
-    SERVICE = "Service"
-    STORAGE = "Storage"
+    RECEPTION = "RECEPTION"
+    HOLDING = "HOLDING"
+    SERVICE = "SERVICE"
+    STORAGE = "STORAGE"
 
 
 class CleaningFrequency(str, Enum):
     """HACCP cleaning frequency"""
-    DAILY = "Daily"
-    WEEKLY = "Weekly"
-    MONTHLY = "Monthly"
+    DAILY = "DAILY"
+    WEEKLY = "WEEKLY"
+    MONTHLY = "MONTHLY"
 
 
 class NonComplianceType(str, Enum):
     """Non-compliance incident types"""
-    PRODUCT = "Product"
-    TEMPERATURE = "Temperature"
-    HYGIENE = "Hygiene"
-    OTHER = "Other"
+    PRODUCT = "PRODUCT"
+    TEMPERATURE = "TEMPERATURE"
+    HYGIENE = "HYGIENE"
+    OTHER = "OTHER"
 
 
 class NonComplianceStatus(str, Enum):
     """Non-compliance processing status"""
-    OPEN = "Open"
-    CORRECTED = "Corrected"
-    CLOSED = "Closed"
+    OPEN = "OPEN"
+    CORRECTED = "CORRECTED"
+    CLOSED = "CLOSED"
 
 
 class DocumentCategory(str, Enum):
     """Document categories"""
-    TEMPERATURES = "Temperatures"
-    CLEANING = "Cleaning"
-    TRAINING = "Training"
-    COMPLIANCE = "Compliance"
-    OTHER = "Other"
+    TEMPERATURES = "TEMPERATURES"
+    CLEANING = "CLEANING"
+    TRAINING = "TRAINING"
+    COMPLIANCE = "COMPLIANCE"
+    OTHER = "OTHER"
 
 
 # ==================== CHILD SCHEMAS ====================

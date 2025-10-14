@@ -9,8 +9,9 @@ from firebase_admin import auth as firebase_auth
 import logging
 
 from api.core.database import get_db
-from api.models.user import User, UserRole
+from api.models.user import Admin, User, UserRole
 from api.schemas.user import UserResponse
+from api.schemas.user_schemas import AdminResponse
 # Import de get_current_user depuis security.py pour éviter la duplication
 from api.core.security import get_current_user
 
@@ -24,7 +25,7 @@ class LoginRequest(BaseModel):
     id_token: str  # Token Firebase
 
 class LoginResponse(BaseModel):
-    user: UserResponse
+    user: AdminResponse  # Changed from UserResponse to AdminResponse
     access_token: str
     token_type: str = "bearer"
     expires_in: int = 3600
@@ -65,38 +66,40 @@ async def login(
     decoded_token = await verify_firebase_token(login_data.id_token)
     firebase_uid = decoded_token['uid']
     email = decoded_token.get('email', '')
-    
-    # Rechercher l'utilisateur
-    user = db.query(User).filter(User.firebase_uid == firebase_uid).first()
-    
-    if not user:
-        # Auto-création de l'utilisateur s'il n'existe pas
-        # Attribution du rôle admin par défaut
-        role = UserRole.ADMIN
-        
-        user = User(
-            firebase_uid=firebase_uid,
-            full_name=decoded_token.get('name', email.split('@')[0]),
-            role=role
+
+    # Rechercher l'admin par firebase_uid
+    admin = db.query(Admin).filter(Admin.firebase_uid == firebase_uid).first()
+
+    if not admin:
+        # L'admin doit être créé par un développeur via l'interface admin
+        # On ne peut pas auto-créer un admin sans created_by_id
+        logger.warning(f"Tentative de connexion avec un compte Firebase non autorisé: {email}")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Compte non autorisé. Veuillez contacter l'administrateur système."
         )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-        
-        logger.info(f"Nouvel utilisateur créé automatiquement: {user.full_name}")
+
+    # Utiliser admin comme user pour compatibilité avec le reste du code
+    user = admin
+
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Compte désactivé"
+        )
     
     # Log de connexion
     logger.info(
         f"Connexion réussie",
         extra={
             "user_id": str(user.id),
-            "user_name": user.full_name,
+            "user_name": f"{user.first_name} {user.last_name}",
             "firebase_uid": firebase_uid
         }
     )
-    
+
     return LoginResponse(
-        user=UserResponse.from_orm(user),
+        user=AdminResponse.model_validate(user),
         access_token=login_data.id_token,  # On réutilise le token Firebase
         expires_in=3600
     )
@@ -147,43 +150,49 @@ async def register(
     
     return new_user
 
-@router.get("/me", response_model=UserResponse)
+@router.get("/me", response_model=AdminResponse)
 async def get_me(
-    current_user: User = Depends(get_current_user)
+    current_user: Admin = Depends(get_current_user)
 ):
     """
-    Récupère les informations de l'utilisateur connecté.
-    
+    Récupère les informations de l'admin connecté.
+
     Nécessite un token d'authentification valide.
     """
     return current_user
 
-@router.put("/me", response_model=UserResponse)
+@router.put("/me", response_model=AdminResponse)
 async def update_me(
-    full_name: Optional[str] = None,
-    current_user: User = Depends(get_current_user),
+    first_name: Optional[str] = None,
+    last_name: Optional[str] = None,
+    current_user: Admin = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    Met à jour les informations de l'utilisateur connecté.
-    
-    - **full_name**: Nouveau nom complet (optionnel)
+    Met à jour les informations de l'admin connecté.
+
+    - **first_name**: Nouveau prénom (optionnel)
+    - **last_name**: Nouveau nom (optionnel)
     """
-    if full_name:
-        current_user.full_name = full_name
+    if first_name:
+        current_user.first_name = first_name
+    if last_name:
+        current_user.last_name = last_name
+
+    if first_name or last_name:
         current_user.updated_at = datetime.utcnow()
-        
+
         db.commit()
         db.refresh(current_user)
-        
+
         logger.info(
-            f"Profil utilisateur mis à jour",
+            f"Profil admin mis à jour",
             extra={
                 "user_id": str(current_user.id),
-                "user_name": current_user.full_name
+                "user_name": f"{current_user.first_name} {current_user.last_name}"
             }
         )
-    
+
     return current_user
 
 @router.post("/refresh", response_model=LoginResponse)
@@ -205,11 +214,11 @@ async def refresh_token(
 
 @router.post("/logout")
 async def logout(
-    current_user: User = Depends(get_current_user)
+    current_user: Admin = Depends(get_current_user)
 ):
     """
-    Déconnexion de l'utilisateur.
-    
+    Déconnexion de l'admin.
+
     Note: Avec Firebase, la déconnexion se fait principalement côté client.
     Cette route peut être utilisée pour des actions côté serveur (logs, cleanup, etc.)
     """
@@ -217,35 +226,35 @@ async def logout(
         f"Déconnexion",
         extra={
             "user_id": str(current_user.id),
-            "user_name": current_user.full_name
+            "user_name": f"{current_user.first_name} {current_user.last_name}"
         }
     )
-    
+
     return {"message": "Déconnexion réussie"}
 
 @router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_account(
-    current_user: User = Depends(get_current_user),
+    current_user: Admin = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    Supprime le compte de l'utilisateur connecté.
-    
+    Supprime le compte de l'admin connecté.
+
     ⚠️ Cette action est irréversible!
     """
     logger.warning(
-        f"Suppression de compte",
+        f"Suppression de compte admin",
         extra={
             "user_id": str(current_user.id),
-            "user_name": current_user.full_name
+            "user_name": f"{current_user.first_name} {current_user.last_name}"
         }
     )
-    
-    # Supprimer l'utilisateur de la base de données
+
+    # Supprimer l'admin de la base de données
     db.delete(current_user)
     db.commit()
-    
+
     # Note: Il faudrait aussi supprimer l'utilisateur Firebase
     # mais cela nécessite l'Admin SDK avec des permissions élevées
-    
+
     return None

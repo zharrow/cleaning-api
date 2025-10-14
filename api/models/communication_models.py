@@ -230,7 +230,7 @@ class Notification(BaseModel):
     )
 
     # Relationships
-    enterprise = relationship("Enterprise", backref="notifications")
+    enterprise = relationship("Enterprise", back_populates="notifications")
 
     def __repr__(self):
         return f"<Notification(id='{self.id}', type='{self.type}', priority='{self.priority.value}', status='{self.status.value}')>"

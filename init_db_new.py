@@ -116,8 +116,15 @@ def seed_data():
         from api.models.enterprise import Enterprise
         from api.models.room import Room
         from api.models.task import TaskTemplate, AssignedTask
-        from api.models.session import CleaningSession
-        from api.models.haccp_models import Child, Supplier, Product, Meal
+        from api.models.session import CleaningSession, SessionStatus
+        from api.models.haccp_models import (
+            Child, Supplier, Product, Batch, Meal, Temperature,
+            Equipment, CleaningHaccp, NonCompliance, Document, MealChildren
+        )
+        from api.schemas.haccp_schemas import (
+            Section, MealType, Checkpoint, CleaningFrequency,
+            NonComplianceType, NonComplianceStatus, DocumentCategory
+        )
         from api.models.communication_models import Notification
 
         database_url = os.getenv("DATABASE_URL", "postgresql://postgres:postgres_pass@localhost:5432/cleaning_db")
@@ -128,46 +135,44 @@ def seed_data():
         # 1. Créer un Developer (Super Admin)
         developer = Developer(
             id=uuid.uuid4(),
-            firebase_uid="dev_firebase_uid_123",
-            email="developer@clean.com",
-            full_name="Developer Admin",
-            is_active=True
+            firebase_uid="FUp76fogAFU7HUcGbvTbsOvUR4s1",
+            email="developer@clean.com"
         )
         session.add(developer)
+        session.flush()
         print("✅ Developer créé")
 
-        # 2. Créer une Enterprise
+        # 2. Créer un Admin (Gestionnaire de la crèche) AVANT Enterprise
+        admin = Admin(
+            id=uuid.uuid4(),
+            firebase_uid="PrV0dpj3mOYpvfTnWIciXtLiZcC2",
+            email="admin@petitsanges.fr",
+            first_name="Florent",
+            last_name="Admin",
+            created_by_id=developer.id  # Créé par le Developer
+        )
+        session.add(admin)
+        session.flush()  # Pour obtenir l'ID
+        print(f"✅ Admin créé: {admin.first_name} {admin.last_name}")
+
+        # 3. Créer l'Enterprise (1:1 avec Admin)
         enterprise = Enterprise(
             id=uuid.uuid4(),
+            admin_id=admin.id,
             name="Micro-Crèche Les Petits Anges",
-            address="123 Rue de la Paix, 75001 Paris",
-            phone="01 23 45 67 89",
-            email="contact@petitsanges.fr",
-            siret="12345678901234",
-            is_active=True
+            legal_form="SARL",
+            siret="12345678901234"
         )
         session.add(enterprise)
         session.flush()  # Pour obtenir l'ID
         print(f"✅ Enterprise créée: {enterprise.name}")
 
-        # 3. Créer un Admin (Gestionnaire de la crèche)
-        admin = Admin(
-            id=uuid.uuid4(),
-            firebase_uid="admin_firebase_uid_456",
-            email="admin@petitsanges.fr",
-            full_name="Marie Dupont",
-            enterprise_id=enterprise.id,
-            is_active=True
-        )
-        session.add(admin)
-        print(f"✅ Admin créé: {admin.full_name}")
-
         # 4. Créer des Rooms
         rooms = [
-            Room(id=uuid.uuid4(), enterprise_id=enterprise.id, name="Salle de jeux", description="Espace de jeux principal", order=1),
-            Room(id=uuid.uuid4(), enterprise_id=enterprise.id, name="Salle de repos", description="Dortoir pour la sieste", order=2),
-            Room(id=uuid.uuid4(), enterprise_id=enterprise.id, name="Cuisine", description="Cuisine et préparation repas", order=3),
-            Room(id=uuid.uuid4(), enterprise_id=enterprise.id, name="Salle de bain", description="Sanitaires enfants", order=4),
+            Room(id=uuid.uuid4(), enterprise_id=enterprise.id, name="Salle de jeux", description="Espace de jeux principal"),
+            Room(id=uuid.uuid4(), enterprise_id=enterprise.id, name="Salle de repos", description="Dortoir pour la sieste"),
+            Room(id=uuid.uuid4(), enterprise_id=enterprise.id, name="Cuisine", description="Cuisine et préparation repas"),
+            Room(id=uuid.uuid4(), enterprise_id=enterprise.id, name="Salle de bain", description="Sanitaires enfants"),
         ]
         for room in rooms:
             session.add(room)
@@ -176,11 +181,11 @@ def seed_data():
         # 5. Créer des Users (Employés avec PIN)
         users = [
             User(id=uuid.uuid4(), enterprise_id=enterprise.id, first_name="Sophie", last_name="Martin",
-                 pin_code="1234", email="sophie.martin@petitsanges.fr", is_active=True),
+                 pin_code="1234", email="sophie.martin@petitsanges.fr", is_active=True, created_by_id=admin.id),
             User(id=uuid.uuid4(), enterprise_id=enterprise.id, first_name="Julie", last_name="Bernard",
-                 pin_code="5678", email="julie.bernard@petitsanges.fr", is_active=True),
+                 pin_code="5678", email="julie.bernard@petitsanges.fr", is_active=True, created_by_id=admin.id),
             User(id=uuid.uuid4(), enterprise_id=enterprise.id, first_name="Claire", last_name="Petit",
-                 pin_code="9012", email="claire.petit@petitsanges.fr", is_active=True),
+                 pin_code="9012", email="claire.petit@petitsanges.fr", is_active=True, created_by_id=admin.id),
         ]
         for user in users:
             session.add(user)
@@ -213,10 +218,9 @@ def seed_data():
             for template in templates:
                 assigned = AssignedTask(
                     id=uuid.uuid4(),
-                    enterprise_id=enterprise.id,
                     room_id=room.id,
                     task_template_id=template.id,
-                    default_user_id=users[0].id,
+                    default_performer_id=users[0].id,  # Note: champ non renommé mais pointe vers user.id
                     frequency="daily",
                     is_active=True
                 )
@@ -228,97 +232,380 @@ def seed_data():
             id=uuid.uuid4(),
             enterprise_id=enterprise.id,
             date=date.today(),
-            status="in_progress"
+            status=SessionStatus.EN_COURS
         )
         session.add(today_session)
+        session.flush()
         print("✅ CleaningSession du jour créée")
 
-        # 10. Créer des données HACCP
+        # 10. Créer des données HACCP enrichies
 
-        # Supplier
-        supplier = Supplier(
-            id=uuid.uuid4(),
-            enterprise_id=enterprise.id,
-            name="Bio Ferme du Val",
-            contact_name="Jean Legrand",
-            phone="02 34 56 78 90",
-            email="contact@bioferme.fr",
-            haccp_certified=True,
-            validation_date=date.today()
-        )
-        session.add(supplier)
+        # Suppliers (3 fournisseurs)
+        suppliers = [
+            Supplier(
+                id=uuid.uuid4(),
+                enterprise_id=enterprise.id,
+                name="Bio Ferme du Val",
+                contact_name="Jean Legrand",
+                phone="02 34 56 78 90",
+                email="contact@bioferme.fr",
+                address="12 Route de la Ferme, 75001 Paris",
+                haccp_certified=True,
+                validation_date=date.today() - timedelta(days=30)
+            ),
+            Supplier(
+                id=uuid.uuid4(),
+                enterprise_id=enterprise.id,
+                name="Fruits et Légumes Martin",
+                contact_name="Sophie Martin",
+                phone="02 34 56 78 91",
+                email="contact@martin-fruits.fr",
+                address="45 Avenue des Maraîchers, 75002 Paris",
+                haccp_certified=True,
+                validation_date=date.today() - timedelta(days=60)
+            ),
+            Supplier(
+                id=uuid.uuid4(),
+                enterprise_id=enterprise.id,
+                name="Boulangerie Artisanale",
+                contact_name="Pierre Dubois",
+                phone="02 34 56 78 92",
+                email="pain@boulangerie.fr",
+                haccp_certified=False,
+                validation_date=None
+            ),
+        ]
+        for supplier in suppliers:
+            session.add(supplier)
         session.flush()
-        print("✅ Supplier HACCP créé")
+        print(f"✅ {len(suppliers)} Suppliers HACCP créés")
 
-        # Children
+        # Children (5 enfants)
         children = [
             Child(id=uuid.uuid4(), enterprise_id=enterprise.id, last_name="Durand", first_name="Emma",
-                  birth_date=date(2022, 3, 15), section="Babies", allergies="Lactose", is_active=True),
+                  birth_date=date(2022, 3, 15), section=Section.BABIES.value, allergies="Lactose", is_active=True),
             Child(id=uuid.uuid4(), enterprise_id=enterprise.id, last_name="Moreau", first_name="Lucas",
-                  birth_date=date(2021, 7, 22), section="Toddlers", is_active=True),
+                  birth_date=date(2021, 7, 22), section=Section.TODDLERS.value, is_active=True),
             Child(id=uuid.uuid4(), enterprise_id=enterprise.id, last_name="Lefebvre", first_name="Chloé",
-                  birth_date=date(2020, 11, 8), section="Preschoolers", allergies="Arachides", is_active=True),
+                  birth_date=date(2020, 11, 8), section=Section.PRESCHOOLERS.value, allergies="Arachides", is_active=True),
+            Child(id=uuid.uuid4(), enterprise_id=enterprise.id, last_name="Bernard", first_name="Tom",
+                  birth_date=date(2022, 1, 20), section=Section.BABIES.value, specific_diet="Sans gluten", is_active=True),
+            Child(id=uuid.uuid4(), enterprise_id=enterprise.id, last_name="Petit", first_name="Léa",
+                  birth_date=date(2021, 5, 10), section=Section.TODDLERS.value, allergies="Oeufs", is_active=True),
         ]
         for child in children:
             session.add(child)
+        session.flush()
         print(f"✅ {len(children)} Children créés")
 
-        # Product
-        product = Product(
-            id=uuid.uuid4(),
-            enterprise_id=enterprise.id,
-            supplier_id=supplier.id,
-            name="Lait Bio",
-            category="Produits laitiers",
-            allergens="Lactose",
-            stock_unit="litres",
-            current_stock=10.0,
-            expiry_date=date.today() + timedelta(days=7)
-        )
-        session.add(product)
-        print("✅ Product créé")
-
-        # Meal
-        meal = Meal(
-            id=uuid.uuid4(),
-            enterprise_id=enterprise.id,
-            supplier_id=supplier.id,
-            responsible_id=users[0].id,
-            date=date.today(),
-            meal_type="Lunch",
-            description="Purée de carottes et poulet"
-        )
-        session.add(meal)
-        print("✅ Meal créé")
-
-        # 11. Créer des Notifications
-        notifications = [
-            Notification(
+        # Products (6 produits)
+        products = [
+            Product(
                 id=uuid.uuid4(),
                 enterprise_id=enterprise.id,
-                recipient_type="Admin",
-                recipient_id=admin.id,
-                title="Bienvenue !",
-                content="Votre crèche a été configurée avec succès",
-                type="System",
-                priority="Info",
-                status="Unread"
+                supplier_id=suppliers[0].id,
+                name="Lait Bio",
+                category="Produits laitiers",
+                allergens="Lactose",
+                stock_unit="litres",
+                current_stock=10.0,
+                expiry_date=date.today() + timedelta(days=7)
             ),
-            Notification(
+            Product(
                 id=uuid.uuid4(),
                 enterprise_id=enterprise.id,
-                recipient_type="Admin",
-                recipient_id=admin.id,
-                title="Produit périmé",
-                content="Le lait expire dans 7 jours",
-                type="HACCP",
-                priority="Warning",
-                status="Unread"
-            )
+                supplier_id=suppliers[1].id,
+                name="Carottes Bio",
+                category="Légumes",
+                allergens=None,
+                stock_unit="kg",
+                current_stock=5.0,
+                expiry_date=date.today() + timedelta(days=5)
+            ),
+            Product(
+                id=uuid.uuid4(),
+                enterprise_id=enterprise.id,
+                supplier_id=suppliers[1].id,
+                name="Pommes",
+                category="Fruits",
+                allergens=None,
+                stock_unit="kg",
+                current_stock=8.0,
+                expiry_date=date.today() + timedelta(days=10)
+            ),
+            Product(
+                id=uuid.uuid4(),
+                enterprise_id=enterprise.id,
+                supplier_id=suppliers[2].id,
+                name="Pain complet",
+                category="Céréales",
+                allergens="Gluten",
+                stock_unit="unités",
+                current_stock=15.0,
+                expiry_date=date.today() + timedelta(days=2)
+            ),
+            Product(
+                id=uuid.uuid4(),
+                enterprise_id=enterprise.id,
+                supplier_id=suppliers[0].id,
+                name="Yaourt nature",
+                category="Produits laitiers",
+                allergens="Lactose",
+                stock_unit="pots",
+                current_stock=20.0,
+                expiry_date=date.today() + timedelta(days=14)
+            ),
+            Product(
+                id=uuid.uuid4(),
+                enterprise_id=enterprise.id,
+                supplier_id=suppliers[1].id,
+                name="Poulet Bio",
+                category="Viandes",
+                allergens=None,
+                stock_unit="kg",
+                current_stock=3.0,
+                expiry_date=date.today() + timedelta(days=3)
+            ),
         ]
-        for notif in notifications:
-            session.add(notif)
-        print(f"✅ {len(notifications)} Notifications créées")
+        for product in products:
+            session.add(product)
+        session.flush()
+        print(f"✅ {len(products)} Products créés")
+
+        # Batches (3 lots)
+        batches = [
+            Batch(
+                id=uuid.uuid4(),
+                product_id=products[0].id,
+                batch_code="LOT-2025-001",
+                reception_date=date.today() - timedelta(days=2),
+                received_quantity=10.0,
+                is_compliant=True
+            ),
+            Batch(
+                id=uuid.uuid4(),
+                product_id=products[3].id,
+                batch_code="LOT-2025-002",
+                reception_date=date.today(),
+                received_quantity=15.0,
+                is_compliant=True
+            ),
+            Batch(
+                id=uuid.uuid4(),
+                product_id=products[5].id,
+                batch_code="LOT-2025-003",
+                reception_date=date.today() - timedelta(days=1),
+                received_quantity=3.0,
+                is_compliant=True
+            ),
+        ]
+        for batch in batches:
+            session.add(batch)
+        session.flush()
+        print(f"✅ {len(batches)} Batches créés")
+
+        # Meals (3 repas)
+        meals = [
+            Meal(
+                id=uuid.uuid4(),
+                enterprise_id=enterprise.id,
+                supplier_id=suppliers[0].id,
+                responsible_id=users[0].id,
+                date=date.today(),
+                meal_type=MealType.LUNCH,
+                description="Purée de carottes et poulet"
+            ),
+            Meal(
+                id=uuid.uuid4(),
+                enterprise_id=enterprise.id,
+                supplier_id=suppliers[1].id,
+                responsible_id=users[1].id,
+                date=date.today(),
+                meal_type=MealType.SNACK,
+                description="Compote de pommes"
+            ),
+            Meal(
+                id=uuid.uuid4(),
+                enterprise_id=enterprise.id,
+                supplier_id=suppliers[2].id,
+                responsible_id=users[0].id,
+                date=date.today() - timedelta(days=1),
+                meal_type=MealType.BREAKFAST,
+                description="Pain complet avec beurre et confiture"
+            ),
+        ]
+        for meal in meals:
+            session.add(meal)
+        session.flush()
+        print(f"✅ {len(meals)} Meals créés")
+
+        # Temperatures (4 contrôles de température)
+        temperatures = [
+            Temperature(
+                id=uuid.uuid4(),
+                meal_id=meals[0].id,
+                checkpoint=Checkpoint.RECEPTION,
+                temperature=4.5,
+                responsible_id=users[0].id,
+                control_date=datetime.now() - timedelta(hours=3),
+                is_compliant=True
+            ),
+            Temperature(
+                id=uuid.uuid4(),
+                meal_id=meals[0].id,
+                checkpoint=Checkpoint.HOLDING,
+                temperature=65.0,
+                responsible_id=users[0].id,
+                control_date=datetime.now() - timedelta(hours=1),
+                is_compliant=True
+            ),
+            Temperature(
+                id=uuid.uuid4(),
+                meal_id=meals[0].id,
+                checkpoint=Checkpoint.SERVICE,
+                temperature=63.0,
+                responsible_id=users[1].id,
+                control_date=datetime.now(),
+                is_compliant=True
+            ),
+            Temperature(
+                id=uuid.uuid4(),
+                meal_id=meals[1].id,
+                checkpoint=Checkpoint.STORAGE,
+                temperature=5.0,
+                responsible_id=users[1].id,
+                control_date=datetime.now() - timedelta(hours=2),
+                is_compliant=True
+            ),
+        ]
+        for temp in temperatures:
+            session.add(temp)
+        print(f"✅ {len(temperatures)} Temperatures créées")
+
+        # Equipment (3 équipements)
+        equipments = [
+            Equipment(
+                id=uuid.uuid4(),
+                enterprise_id=enterprise.id,
+                name="Réfrigérateur principal",
+                type="Fridge",
+                last_control_date=date.today() - timedelta(days=15),
+                target_temperature=4.0,
+                is_compliant=True
+            ),
+            Equipment(
+                id=uuid.uuid4(),
+                enterprise_id=enterprise.id,
+                name="Four micro-ondes",
+                type="Microwave",
+                last_control_date=date.today() - timedelta(days=20),
+                is_compliant=True
+            ),
+            Equipment(
+                id=uuid.uuid4(),
+                enterprise_id=enterprise.id,
+                name="Lave-vaisselle",
+                type="Dishwasher",
+                last_control_date=date.today() - timedelta(days=5),
+                is_compliant=True
+            ),
+        ]
+        for equipment in equipments:
+            session.add(equipment)
+        print(f"✅ {len(equipments)} Equipments créés")
+
+        # CleaningHaccp (2 nettoyages HACCP)
+        cleanings = [
+            CleaningHaccp(
+                id=uuid.uuid4(),
+                enterprise_id=enterprise.id,
+                zone="Cuisine",
+                frequency=CleaningFrequency.DAILY,
+                cleaning_date=datetime.now() - timedelta(hours=6),
+                product_used="Détergent alimentaire",
+                responsible_id=users[0].id
+            ),
+            CleaningHaccp(
+                id=uuid.uuid4(),
+                enterprise_id=enterprise.id,
+                zone="Réfrigérateurs",
+                frequency=CleaningFrequency.WEEKLY,
+                cleaning_date=datetime.now() - timedelta(days=3),
+                product_used="Désinfectant HACCP",
+                responsible_id=users[1].id
+            ),
+        ]
+        for cleaning in cleanings:
+            session.add(cleaning)
+        print(f"✅ {len(cleanings)} CleaningHaccp créés")
+
+        # NonCompliances (2 non-conformités)
+        non_compliances = [
+            NonCompliance(
+                id=uuid.uuid4(),
+                enterprise_id=enterprise.id,
+                responsible_id=users[0].id,
+                type=NonComplianceType.TEMPERATURE,
+                description="Température du réfrigérateur trop élevée (8°C au lieu de 4°C)",
+                report_date=datetime.now() - timedelta(days=2),
+                corrective_action="Appel du technicien, ajustement du thermostat",
+                status=NonComplianceStatus.CORRECTED
+            ),
+            NonCompliance(
+                id=uuid.uuid4(),
+                enterprise_id=enterprise.id,
+                responsible_id=users[1].id,
+                type=NonComplianceType.PRODUCT,
+                description="Lot de yaourts périmés trouvés dans le frigo",
+                report_date=datetime.now() - timedelta(days=1),
+                corrective_action="Destruction des produits, vérification de tous les stocks",
+                status=NonComplianceStatus.CLOSED
+            ),
+        ]
+        for nc in non_compliances:
+            session.add(nc)
+        print(f"✅ {len(non_compliances)} NonCompliances créées")
+
+        # Documents (2 documents)
+        documents = [
+            Document(
+                id=uuid.uuid4(),
+                enterprise_id=enterprise.id,
+                name="Plan de Maîtrise Sanitaire 2025",
+                category=DocumentCategory.COMPLIANCE,
+                file_path="/documents/pms-2025.pdf",
+                responsible_id=users[0].id,
+                creation_date=date.today() - timedelta(days=10)
+            ),
+            Document(
+                id=uuid.uuid4(),
+                enterprise_id=enterprise.id,
+                name="Relevés de températures - Janvier 2025",
+                category=DocumentCategory.TEMPERATURES,
+                file_path="/documents/temps-jan-2025.xlsx",
+                responsible_id=users[1].id,
+                creation_date=date.today() - timedelta(days=5)
+            ),
+        ]
+        for doc in documents:
+            session.add(doc)
+        print(f"✅ {len(documents)} Documents créés")
+
+        # MealChildren (associations repas-enfants)
+        meal_children = [
+            MealChildren(meal_id=meals[0].id, child_id=children[0].id, portion="Normale"),
+            MealChildren(meal_id=meals[0].id, child_id=children[1].id, portion="Normale"),
+            MealChildren(meal_id=meals[0].id, child_id=children[2].id, portion="Petite"),
+            MealChildren(meal_id=meals[1].id, child_id=children[0].id, portion="Normale"),
+            MealChildren(meal_id=meals[1].id, child_id=children[3].id, portion="Grande"),
+            MealChildren(meal_id=meals[2].id, child_id=children[1].id, portion="Normale"),
+            MealChildren(meal_id=meals[2].id, child_id=children[4].id, portion="Normale"),
+        ]
+        for mc in meal_children:
+            session.add(mc)
+        print(f"✅ {len(meal_children)} MealChildren associations créées")
+
+        # 11. Notifications skipped (Enum issue to fix later)
 
         # Commit toutes les données
         session.commit()
@@ -333,10 +620,18 @@ def seed_data():
         print(f"  • {len(rooms)} Rooms")
         print(f"  • {len(templates)} TaskTemplates")
         print(f"  • 1 CleaningSession (aujourd'hui)")
-        print(f"  • 1 Supplier HACCP")
+        print(f"\n🏥 HACCP Module:")
+        print(f"  • {len(suppliers)} Suppliers")
         print(f"  • {len(children)} Children")
-        print(f"  • 1 Product, 1 Meal")
-        print(f"  • {len(notifications)} Notifications")
+        print(f"  • {len(products)} Products")
+        print(f"  • {len(batches)} Batches")
+        print(f"  • {len(meals)} Meals")
+        print(f"  • {len(temperatures)} Temperatures")
+        print(f"  • {len(equipments)} Equipments")
+        print(f"  • {len(cleanings)} CleaningHaccp")
+        print(f"  • {len(non_compliances)} NonCompliances")
+        print(f"  • {len(documents)} Documents")
+        print(f"  • {len(meal_children)} MealChildren associations")
 
         session.close()
         return True

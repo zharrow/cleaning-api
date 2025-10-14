@@ -59,10 +59,11 @@ security = HTTPBearer()
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db)
-) -> User:
+) -> Admin:
     """
     LEGACY: Dependency pour obtenir l'utilisateur actuel authentifié
     NOTE: This is for backward compatibility only. Use get_current_admin for new code.
+    UPDATED: Now returns Admin instead of User (User model is for employees with PIN auth)
     """
     try:
         token = credentials.credentials
@@ -72,16 +73,26 @@ async def get_current_user(
         firebase_uid = decoded_token['uid']
         logger.info(f"Firebase UID décodé: {firebase_uid}")
 
-        user = db.query(User).filter(User.firebase_uid == firebase_uid).first()
-        if not user:
-            logger.warning(f"Utilisateur non trouvé pour firebase_uid: {firebase_uid}")
+        # Chercher un Admin (Firebase Auth)
+        admin = db.query(Admin).filter(Admin.firebase_uid == firebase_uid).first()
+        if not admin:
+            logger.warning(f"Admin non trouvé pour firebase_uid: {firebase_uid}")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Utilisateur non trouvé"
             )
 
-        logger.info(f"Utilisateur trouvé: {user.full_name} (ID: {user.id})")
-        return user
+        if not admin.is_active:
+            logger.warning(f"Admin inactif tenté d'accéder: {admin.id}")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Compte désactivé"
+            )
+
+        logger.info(f"Admin trouvé: {admin.first_name} {admin.last_name} (ID: {admin.id})")
+        return admin
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Erreur d'authentification: {str(e)}")
         raise HTTPException(
