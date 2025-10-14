@@ -221,7 +221,7 @@ def seed_data():
                     room_id=room.id,
                     task_template_id=template.id,
                     default_performer_id=users[0].id,  # Note: champ non renommé mais pointe vers user.id
-                    frequency="daily",
+                    frequency={"type": "daily", "times_per_day": 1, "days": []},
                     is_active=True
                 )
                 session.add(assigned)

@@ -90,12 +90,17 @@ class AssignedTaskResponse(BaseModel):
     def from_orm_model(cls, obj):
         """Custom factory method to create AssignedTaskResponse from ORM model"""
         frequency = obj.frequency or {}
-        
+
+        # Convert User to PerformerResponse if default_performer exists
+        default_performer = None
+        if obj.default_performer:
+            default_performer = PerformerResponse.from_user(obj.default_performer)
+
         return cls(
             id=obj.id,
             task_template=obj.task_template,
             room=obj.room,
-            default_performer=obj.default_performer,
+            default_performer=default_performer,
             frequency_days=frequency,
             times_per_day=frequency.get('times_per_day', 1),
             suggested_time=obj.suggested_time,
